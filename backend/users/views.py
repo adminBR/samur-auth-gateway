@@ -144,16 +144,13 @@ class ValidateToken(APIView):
     authentication_classes = []
 
     def get(self, request):
-        auth = get_authorization_header(request).decode()
         service_id = request.headers.get("X-Service-ID")
-        test = request.headers.get('Authorization')
-        print("a",request.headers)
-        print("validating service:",service_id," on token:",auth)
-        if not auth.startswith("Bearer "):
+        token = request.COOKIES.get('token')
+        print("validating service:",service_id," on token:",token)
+        if not token:
             return Response({"detail": "No token provided"}, 
                             status=status.HTTP_401_UNAUTHORIZED)
 
-        token = auth.split()[1]
         try:
             payload = decode_token(token)
             print(payload)
