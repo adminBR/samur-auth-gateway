@@ -109,7 +109,9 @@ export const loginUser = async (user_name: string, user_pass: string) => {
     user_pass: user_pass,
   };
   console.log(body);
-  const res = await api.post("api/v1/users/login/", body,{ withCredentials: true,});
+  const res = await api.post("api_gateway/v1/users/login/", body, {
+    withCredentials: true,
+  });
 
   localStorage.setItem("access_token", res.data.access_token);
   localStorage.setItem("refresh_token", res.data.refresh_token);
@@ -120,7 +122,7 @@ export const loginUser = async (user_name: string, user_pass: string) => {
 
 export const validateToken = async () => {
   try {
-    const res = await api.get("api/v1/users/validate");
+    const res = await api.get("api_gateway/v1/users/validate");
     return res.data; // { valid: true, user_id, user_name }
   } catch {
     return { valid: false };
@@ -129,7 +131,7 @@ export const validateToken = async () => {
 
 export const logoutUser = async () => {
   try {
-    await api.get("api/v1/users/logout");
+    await api.get("api_gateway/v1/users/logout");
     return true;
   } catch {
     return false;
@@ -139,19 +141,19 @@ export const logoutUser = async () => {
 // --- Admin User Management API Calls ---
 
 export const getAllUsersAdmin = async (): Promise<User[]> => {
-  const res = await api.get("api/v1/users/admin/"); // Adjust path if needed
+  const res = await api.get("api_gateway/v1/users/admin/"); // Adjust path if needed
   return res.data;
 };
 
 export const createUserAdmin = async (
   userData: NewUserPayload
 ): Promise<{ response: string; user: User }> => {
-  const res = await api.post("api/v1/users/admin/", userData); // Adjust path
+  const res = await api.post("api_gateway/v1/users/admin/", userData); // Adjust path
   return res.data;
 };
 
 export const getUserDetailsAdmin = async (userId: number): Promise<User> => {
-  const res = await api.get(`api/v1/users/admin/${userId}/`); // Adjust path
+  const res = await api.get(`api_gateway/v1/users/admin/${userId}/`); // Adjust path
   return res.data;
 };
 
@@ -159,19 +161,19 @@ export const updateUserAdmin = async (
   userId: number,
   userData: UpdateUserPayload
 ): Promise<{ response: string; user: User }> => {
-  const res = await api.put(`api/v1/users/admin/${userId}/`, userData); // Adjust path
+  const res = await api.put(`api_gateway/v1/users/admin/${userId}/`, userData); // Adjust path
   return res.data;
 };
 
 export const deleteUserAdmin = async (
   userId: number
 ): Promise<{ response: string }> => {
-  const res = await api.delete(`api/v1/users/admin/${userId}/`); // Adjust path
+  const res = await api.delete(`api_gateway/v1/users/admin/${userId}/`); // Adjust path
   return res.data;
 };
 
 export const getAllServicesForAdmin = async (): Promise<AdminService[]> => {
-  const res = await api.get("api/v1/users/admin/services/all/"); // Adjust path to match your Django urls.py
+  const res = await api.get("api_gateway/v1/users/admin/services/all/"); // Adjust path to match your Django urls.py
   return res.data;
 };
 
