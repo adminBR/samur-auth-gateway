@@ -109,7 +109,7 @@ export const loginUser = async (user_name: string, user_pass: string) => {
     user_pass: user_pass,
   };
   console.log(body);
-  const res = await api.post("api/v1/users/login/", body);
+  const res = await api.post("api/v1/users/login/", body,{ withCredentials: true,});
 
   localStorage.setItem("access_token", res.data.access_token);
   localStorage.setItem("refresh_token", res.data.refresh_token);

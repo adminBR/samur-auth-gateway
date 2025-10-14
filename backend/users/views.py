@@ -124,7 +124,7 @@ class UserLogin(APIView):
             value=access_token,
             httponly=True,
             secure=False,
-            samesite="Strict",
+            samesite="Lax",
             path="/",
             max_age=60 * 60 * 24 * 365 * 20 if user[2]=="inf" else 60 * 60 * 24 * 1
         ) # Cookie will last for 20 years if its infinite or the 1 day for finite
@@ -146,7 +146,9 @@ class ValidateToken(APIView):
     def get(self, request):
         auth = get_authorization_header(request).decode()
         service_id = request.headers.get("X-Service-ID")
-        print(auth,service_id)
+        test = request.headers.get('Authorization')
+        print("a",request.headers)
+        print("validating service:",service_id," on token:",auth)
         if not auth.startswith("Bearer "):
             return Response({"detail": "No token provided"}, 
                             status=status.HTTP_401_UNAUTHORIZED)
