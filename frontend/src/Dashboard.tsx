@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { Search, Edit, Plus, X, LoaderCircle } from "lucide-react";
+import {
+  Search,
+  Edit,
+  X,
+  LoaderCircle,
+  ExternalLink,
+  Globe,
+} from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import {
@@ -179,108 +186,91 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen overflow-x-hidden bg-gradient-to-b from-[#2e7675] to-[#2e7675]">
+    <div className="flex flex-col h-screen bg-[#2e7675] overflow-hidden">
       {/* Header */}
       <Navbar
         handleLogout={handleLogout}
         setSearchTerm={setSearchTerm}
         searchTerm={searchTerm}
+        isAdmin={isAdmin}
+        onAddService={() => {
+          setAddModalOpen(true);
+          setNewService({
+            srv_image: "/api/placeholder/200/150",
+            srv_name: "",
+            srv_ip: "",
+            srv_desc: "",
+          });
+        }}
+        onManageUsers={() => setUserManager((prev) => !prev)}
+        isAddLoading={isLoading}
       />
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col p-2 overflow-y-auto  bg-[#e7e7e7] rounded-md m-2">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <div className="flex justify-between items-center mb-6 w-full">
-            <h1 className="text-2xl font-semibold pt-3 text-gray-500">
-              Serviços ativos
-            </h1>
-            {isAdmin && (
-              <div>
-                <button
-                  onClick={() => setAddModalOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {isLoading ? (
-                    <LoaderCircle className="animate-spin w-5 h-5 text-white" />
-                  ) : (
-                    <p>Adicionar serviço</p>
-                  )}
-                </button>
-                <button
-                  onClick={() => setUserManager(!userManager)}
-                  className="inline-flex items-center ml-2 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Gerenciar usuarios
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="min-h-[300px] w-full">
+      {/* Main content - Restored green border effect via margin and background */}
+      <main className="flex-1 bg-gray-50 m-2 rounded-xl overflow-y-auto p-4 sm:p-6 shadow-2xl">
+        <div className="w-full h-full">
+          <div className="min-h-[300px]">
             {filteredServices.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
                 {filteredServices.map((service) => (
                   <div
                     key={service.srv_ip}
-                    className="bg-white border overflow-hidden shadow rounded-lg cursor-pointer hover:shadow-md transform hover:-translate-y-1 transition-transform duration-300"
+                    onClick={() => handleServiceClick(service.srv_ip)}
+                    className="group relative bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 overflow-hidden cursor-pointer flex flex-col h-full hover:-translate-y-1"
                   >
-                    <div className="aspect-w-16 aspect-h-9 bg-gray-200">
+                    <div className="relative h-40 overflow-hidden bg-gray-200">
                       <img
                         src={`data:${service.srv_image
                           .split(".")
                           .pop()
                           ?.toLowerCase()};base64,${service.srv_image}`}
                         alt={service.srv_name}
-                        className="w-full h-48 object-cover"
-                        onClick={() => handleServiceClick(service.srv_ip)}
+                        className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                       />
-                    </div>
-                    <div className="px-4 py-4">
-                      <div className="flex justify-between items-start">
-                        <h3
-                          className="text-lg font-medium text-gray-900"
-                          onClick={() => handleServiceClick(service.srv_ip)}
+                      <div className="absolute inset-0 bg-[#2e7675]/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <span className="text-white font-semibold flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/40 hover:bg-white/30 transition-colors text-sm">
+                          Acessar <ExternalLink className="w-3 h-3" />
+                        </span>
+                      </div>
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => handleEditClick(e, service)}
+                          className="absolute top-2 right-2 p-1.5 bg-white/90 backdrop-blur-sm rounded-full text-gray-600 hover:text-[#2e7675] shadow-sm transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-10"
+                          title="Editar serviço"
                         >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="p-4 flex flex-col flex-grow">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-base font-bold text-gray-800 line-clamp-1 group-hover:text-[#2e7675] transition-colors">
                           {service.srv_name}
                         </h3>
-
-                        {isAdmin && (
-                          <button
-                            onClick={(e) => handleEditClick(e, service)}
-                            className="p-1 rounded-full text-gray-400 hover:text-green-600 focus:outline-none"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                        )}
                       </div>
-                      <div
-                        className="mt-2 flex items-center"
-                        onClick={() => handleServiceClick(service.srv_ip)}
-                      >
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <p className="text-gray-500 text-xs mb-3 line-clamp-2 flex-grow">
+                        {service.srv_desc || "Sem descrição disponível."}
+                      </p>
+                      <div className="pt-3 border-t border-gray-100 flex items-center text-[10px] font-medium text-gray-500 mt-auto">
+                        <Globe className="w-3 h-3 mr-1 text-[#2e7675]" />
+                        <span className="bg-[#2e7675]/10 text-[#2e7675] px-1.5 py-0.5 rounded font-semibold">
                           {service.srv_ip}
                         </span>
                       </div>
-                      <p
-                        className="mt-1 text-sm text-gray-500"
-                        onClick={() => handleServiceClick(service.srv_ip)}
-                      >
-                        {service.srv_desc}
-                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="w-full flex flex-col items-center justify-center border border-dashed rounded-lg py-16 px-4  text-center">
-                <Search className="w-10 h-10 text-gray-400 mb-4" />
-                <h2 className="text-lg font-semibold text-gray-700 mb-2">
+              <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-dashed border-gray-300 shadow-sm">
+                <div className="bg-gray-50 p-4 rounded-full mb-4">
+                  <Search className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900">
                   Nenhum serviço encontrado
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Verifique sua internet ou entre em contanto com o suporte
+                </h3>
+                <p className="mt-1 text-gray-500 max-w-sm">
+                  Não encontramos serviços com o termo pesquisado.
                 </p>
               </div>
             )}
@@ -290,15 +280,15 @@ export default function Dashboard() {
 
       {/* Edit Modal */}
       {editModalOpen && currentService && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-medium text-gray-900">
-                Edit Service
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Editar Serviço
               </h3>
               <button
                 onClick={() => setEditModalOpen(false)}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -306,8 +296,8 @@ export default function Dashboard() {
             <div className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Service Name
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome do Serviço
                   </label>
                   <input
                     type="text"
@@ -318,12 +308,12 @@ export default function Dashboard() {
                         srv_name: e.target.value,
                       })
                     }
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    IP Address
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Endereço IP
                   </label>
                   <input
                     type="text"
@@ -334,12 +324,12 @@ export default function Dashboard() {
                         srv_ip: e.target.value,
                       })
                     }
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Description
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descrição
                   </label>
                   <textarea
                     value={currentService.srv_desc}
@@ -350,44 +340,55 @@ export default function Dashboard() {
                       })
                     }
                     rows={3}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Service Image
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Imagem do Serviço
                   </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setSelectedFile(file);
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setPreviewImage(reader.result as string);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  {previewImage && (
-                    <img
-                      src={previewImage}
-                      alt="Preview"
-                      className="mt-2 w-32 h-32 object-cover rounded"
+                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-[#2e7675] transition-colors cursor-pointer relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setSelectedFile(file);
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setPreviewImage(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
                     />
-                  )}
+                    <div className="space-y-1 text-center">
+                      {previewImage ? (
+                        <img
+                          src={previewImage}
+                          alt="Preview"
+                          className="mx-auto h-32 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="text-gray-500">
+                          <span className="text-[#2e7675] font-medium">
+                            Upload a file
+                          </span>{" "}
+                          or drag and drop
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-between items-center">
-                {/* Left Side - Delete Button */}
+              <div className="mt-8 flex justify-between items-center">
                 <div className="flex">
                   <button
                     onClick={handleDeleteService}
-                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                   >
                     {isRemoveLoading ? (
                       <LoaderCircle className="animate-spin w-5 h-5 text-white" />
@@ -397,17 +398,16 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                {/* Right Side - Cancel and Save Buttons */}
-                <div className="flex">
+                <div className="flex gap-3">
                   <button
                     onClick={() => setEditModalOpen(false)}
-                    className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 mr-3"
+                    className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={handleUpdateService}
-                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-[#2e7675] hover:bg-[#256160] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
                   >
                     {isLoading ? (
                       <LoaderCircle className="animate-spin w-5 h-5 text-white" />
@@ -425,17 +425,16 @@ export default function Dashboard() {
       {userManager && <UserManager onClose={handleCloseUserManager} />}
 
       {/* Add Modal */}
-
       {addModalOpen && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-lg font-medium text-gray-900">
-                Adicionar novo serviço
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Adicionar Novo Serviço
               </h3>
               <button
                 onClick={() => setAddModalOpen(false)}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -443,7 +442,7 @@ export default function Dashboard() {
             <div className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nome do serviço
                   </label>
                   <input
@@ -452,12 +451,12 @@ export default function Dashboard() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setNewService({ ...newService, srv_name: e.target.value })
                     }
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
                     placeholder="Insira um nome"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Ip do serviço
                   </label>
                   <input
@@ -466,12 +465,12 @@ export default function Dashboard() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setNewService({ ...newService, srv_ip: e.target.value })
                     }
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
                     placeholder="Insira um endereço ip (ex. 192.168.1.100)"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Descrição do serviço
                   </label>
                   <textarea
@@ -480,49 +479,61 @@ export default function Dashboard() {
                       setNewService({ ...newService, srv_desc: e.target.value })
                     }
                     rows={3}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
                     placeholder="Insira uma descrição sobre o funcionamento do serviço"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Imagem do serviço
                   </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setSelectedFile(file);
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setPreviewImage(reader.result as string);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  {previewImage && (
-                    <img
-                      src={previewImage}
-                      alt="Preview"
-                      className="mt-2 w-32 h-32 object-cover rounded"
+                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-[#2e7675] transition-colors cursor-pointer relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setSelectedFile(file);
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setPreviewImage(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
                     />
-                  )}
+                    <div className="space-y-1 text-center">
+                      {previewImage ? (
+                        <img
+                          src={previewImage}
+                          alt="Preview"
+                          className="mx-auto h-32 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="text-gray-500">
+                          <span className="text-[#2e7675] font-medium">
+                            Upload a file
+                          </span>{" "}
+                          or drag and drop
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className="mt-8 flex justify-end gap-3">
                 <button
                   onClick={() => setAddModalOpen(false)}
-                  className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 mr-3"
+                  className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleAddService}
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-[#2e7675] hover:bg-[#256160] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
                 >
                   {isLoading ? (
                     <LoaderCircle className="animate-spin w-5 h-5 text-white" />

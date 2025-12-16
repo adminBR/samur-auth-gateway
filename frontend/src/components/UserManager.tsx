@@ -13,7 +13,15 @@ import {
   AdminService,
 } from "../api/axios"; // Adjust path
 
-import { LoaderCircle } from "lucide-react";
+import {
+  LoaderCircle,
+  X,
+  Trash2,
+  Edit,
+  UserPlus,
+  AlertTriangle,
+  Check,
+} from "lucide-react";
 
 interface UserManagerProps {
   onClose: () => void; // Callback to close the modal
@@ -259,7 +267,7 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
 
   const handleDeleteUser = async (userId: number) => {
     setConfirmMessage(
-      "Are you sure you want to delete this user? This action cannot be undone."
+      "Tem certeza que deseja remover este usuário? Esta ação não pode ser desfeita."
     );
     setConfirmAction(() => async () => {
       setError(null);
@@ -277,38 +285,44 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
   const renderConfirmModal = () => {
     if (!showConfirmModal) return null;
     return (
-      <div className="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-center z-[70]">
-        <div className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Confirm Action
-          </h3>
-          <p className="text-sm text-gray-600 mb-6">{confirmMessage}</p>
-          {error /* Error display specific to the confirm modal if any action within it fails */ && (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex justify-center items-center z-[70] p-4">
+        <div className="relative mx-auto p-6 border-0 w-full max-w-sm shadow-2xl rounded-2xl bg-white">
+          <div className="flex flex-col items-center text-center mb-4">
+            <div className="bg-red-100 p-3 rounded-full mb-3">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 className="text-lg leading-6 font-bold text-gray-900">
+              Confirmar Ação
+            </h3>
+          </div>
+          <p className="text-sm text-gray-500 mb-6 text-center">
+            {confirmMessage}
+          </p>
+          {error && (
             <div
-              className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded relative mb-3 text-sm"
+              className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded relative mb-3 text-sm"
               role="alert"
             >
               {error}
             </div>
           )}
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-center space-x-3">
             <button
               onClick={() => {
                 setShowConfirmModal(false);
                 setError(null); // Clear error when cancelling
               }}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md border border-gray-300 shadow-sm"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-lg border border-gray-300 shadow-sm transition-colors"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               onClick={() => {
                 if (confirmAction) confirmAction();
-                // setShowConfirmModal(false); // Moved inside confirmAction or its .then/.catch if async
               }}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition-colors"
             >
-              Confirm
+              Confirmar
             </button>
           </div>
         </div>
@@ -321,41 +335,29 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
     content: JSX.Element,
     subModalCloseHandler: () => void
   ) => (
-    <div className="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex justify-center items-center z-[60]">
-      <div className="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl leading-6 font-medium text-gray-900">
-            {title}
-          </h3>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex justify-center items-center z-[60] p-4">
+      <div className="relative mx-auto bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex justify-between items-center p-4 border-b border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           <button
             onClick={subModalCloseHandler}
-            className="text-gray-400 hover:text-gray-600 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
+            <X className="h-5 w-5" />
           </button>
         </div>
-        {error && (showAddUserModal || showEditUserModal) && (
-          <div
-            className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded relative mb-3 text-sm"
-            role="alert"
-          >
-            {error}
-          </div>
-        )}
-        {content}
+        <div className="p-6">
+          {error && (showAddUserModal || showEditUserModal) && (
+            <div
+              className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded relative mb-4 text-sm flex items-center"
+              role="alert"
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              {error}
+            </div>
+          )}
+          {content}
+        </div>
       </div>
     </div>
   );
@@ -365,7 +367,7 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
     <form onSubmit={handleAddUser} className="space-y-4">
       <div>
         <label
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 mb-1"
           htmlFor="newUsername"
         >
           Usuário
@@ -376,12 +378,12 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
           value={newUsername}
           onChange={(e) => setNewUsername(e.target.value)}
           required
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
         />
       </div>
       <div>
         <label
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 mb-1"
           htmlFor="newPassword"
         >
           Senha
@@ -392,45 +394,41 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           required
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
         />
       </div>
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id="newIsAdmin"
-          checked={newIsAdmin}
-          onChange={(e) => setNewIsAdmin(e.target.checked)}
-          className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-        />
-        <label
-          htmlFor="newIsAdmin"
-          className="ml-2 block text-sm text-gray-900"
-        >
-          É Admin?
+      <div className="flex items-center gap-6 py-1">
+        <label className="flex items-center cursor-pointer group">
+          <input
+            type="checkbox"
+            id="newIsAdmin"
+            checked={newIsAdmin}
+            onChange={(e) => setNewIsAdmin(e.target.checked)}
+            className="h-4 w-4 text-[#2e7675] border-gray-300 rounded focus:ring-[#2e7675] cursor-pointer"
+          />
+          <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+            É Admin?
+          </span>
         </label>
-      </div>
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id="newIsAdmin"
-          checked={newEndlessJwt}
-          onChange={(e) => setNewEndlessJwt(e.target.checked)}
-          className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-        />
-        <label
-          htmlFor="newIsAdmin"
-          className="ml-2 block text-sm text-gray-900"
-        >
-          Sessão infinita?
+        <label className="flex items-center cursor-pointer group">
+          <input
+            type="checkbox"
+            id="newEndlessJwt"
+            checked={newEndlessJwt}
+            onChange={(e) => setNewEndlessJwt(e.target.checked)}
+            className="h-4 w-4 text-[#2e7675] border-gray-300 rounded focus:ring-[#2e7675] cursor-pointer"
+          />
+          <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+            Sessão infinita?
+          </span>
         </label>
       </div>
       {/* ADDED: Service Access Rights selection for Add User form */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Service Access Rights
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Direitos de acesso
         </label>
-        <div className="mt-1 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50 space-y-2">
+        <div className="mt-1 max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3 bg-gray-50 space-y-2 custom-scrollbar">
           {allServices.length > 0 ? (
             allServices.map((service) => (
               <div
@@ -444,46 +442,46 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
                   onChange={() =>
                     handleNewServiceCheckboxChange(service.srv_id)
                   }
-                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  className="h-4 w-4 text-[#2e7675] border-gray-300 rounded focus:ring-[#2e7675] cursor-pointer"
                 />
                 <label
                   htmlFor={`new-service-add-${service.srv_id}`}
-                  className="ml-2 block text-sm text-gray-900"
+                  className="ml-2 block text-sm text-gray-700 cursor-pointer hover:text-gray-900"
                 >
                   {service.srv_name}{" "}
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-400">
                     (ID: {service.srv_id})
                   </span>
                 </label>
               </div>
             ))
           ) : (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 italic">
               {isLoading
-                ? "Loading services..."
-                : "No services available or failed to load."}
+                ? "Carregando serviços..."
+                : "Nenhum serviço disponível."}
             </p>
           )}
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3 pt-3">
+      <div className="flex justify-end space-x-3 pt-4">
         <button
           type="button"
           onClick={() => {
             setShowAddUserModal(false);
             resetAddUserForm();
           }}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md border border-gray-300 shadow-sm"
+          className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm"
+          className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-[#2e7675] hover:bg-[#256160] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
         >
           {isLoadingPost ? (
-            <LoaderCircle className="animate-spin w-20 h-5 text-white" />
+            <LoaderCircle className="animate-spin w-5 h-5 text-white" />
           ) : (
             <p>Criar usuário</p>
           )}
@@ -496,7 +494,7 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
     <form onSubmit={handleEditUser} className="space-y-4">
       <div>
         <label
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 mb-1"
           htmlFor="editPassword"
         >
           Nova senha (opcional)
@@ -506,45 +504,42 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
           id="editPassword"
           value={editPassword}
           onChange={(e) => setEditPassword(e.target.value)}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
           autoComplete="new-password"
+          placeholder="Deixe em branco para manter"
         />
       </div>
-      <div className="flex items-center">
-        <input
-          id="editIsAdmin"
-          type="checkbox"
-          checked={editIsAdmin}
-          onChange={(e) => setEditIsAdmin(e.target.checked)}
-          className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-        />
-        <label
-          htmlFor="editIsAdmin"
-          className="ml-2 block text-sm text-gray-900"
-        >
-          É Admin?
+      <div className="flex items-center gap-6 py-1">
+        <label className="flex items-center cursor-pointer group">
+          <input
+            id="editIsAdmin"
+            type="checkbox"
+            checked={editIsAdmin}
+            onChange={(e) => setEditIsAdmin(e.target.checked)}
+            className="h-4 w-4 text-[#2e7675] border-gray-300 rounded focus:ring-[#2e7675] cursor-pointer"
+          />
+          <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+            É Admin?
+          </span>
         </label>
-      </div>
-      <div className="flex items-center">
-        <input
-          id="jwt_expiration"
-          type="checkbox"
-          checked={editEndlessJwt}
-          onChange={(e) => setEditEndlessJwt(e.target.checked)}
-          className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-        />
-        <label
-          htmlFor="jwt_expiration"
-          className="ml-2 block text-sm text-gray-900"
-        >
-          Sessão infinita
+        <label className="flex items-center cursor-pointer group">
+          <input
+            id="jwt_expiration"
+            type="checkbox"
+            checked={editEndlessJwt}
+            onChange={(e) => setEditEndlessJwt(e.target.checked)}
+            className="h-4 w-4 text-[#2e7675] border-gray-300 rounded focus:ring-[#2e7675] cursor-pointer"
+          />
+          <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900">
+            Sessão infinita
+          </span>
         </label>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
           Direito de acesso
         </label>
-        <div className="mt-1 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3 bg-gray-50 space-y-2">
+        <div className="mt-1 max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3 bg-gray-50 space-y-2 custom-scrollbar">
           {allServices.length > 0 ? (
             allServices.map((service) => (
               <div
@@ -556,45 +551,45 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
                   type="checkbox"
                   checked={editSelectedServiceIds.has(service.srv_id)}
                   onChange={() => handleServiceCheckboxChange(service.srv_id)}
-                  className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  className="h-4 w-4 text-[#2e7675] border-gray-300 rounded focus:ring-[#2e7675] cursor-pointer"
                 />
                 <label
                   htmlFor={`service-edit-${service.srv_id}`}
-                  className="ml-2 block text-sm text-gray-900"
+                  className="ml-2 block text-sm text-gray-700 cursor-pointer hover:text-gray-900"
                 >
                   {service.srv_name}{" "}
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-400">
                     (ID: {service.srv_id})
                   </span>
                 </label>
               </div>
             ))
           ) : (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 italic">
               {isLoading
-                ? "Loading services..."
-                : "No services available or failed to load."}
+                ? "Carregando serviços..."
+                : "Nenhum serviço disponível."}
             </p>
           )}
         </div>
       </div>
-      <div className="flex justify-end space-x-3 pt-3">
+      <div className="flex justify-end space-x-3 pt-4">
         <button
           type="button"
           onClick={() => {
             setShowEditUserModal(false);
             setError(null); // Clear error when cancelling edit
           }}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md border border-gray-300 shadow-sm"
+          className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm"
+          className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-[#2e7675] hover:bg-[#256160] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
         >
           {isLoadingPost ? (
-            <LoaderCircle className="animate-spin w-24 h-5 text-white" />
+            <LoaderCircle className="animate-spin w-5 h-5 text-white" />
           ) : (
             <p>Salvar mudanças</p>
           )}
@@ -605,140 +600,145 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="userManagerModalTitle"
     >
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b border-gray-200">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex justify-between items-center p-5 border-b border-gray-100">
           <h1
             id="userManagerModalTitle"
-            className="text-xl font-semibold text-gray-800"
+            className="text-xl font-bold text-gray-900"
           >
             Gerenciamento de usuários
           </h1>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="Close user manager"
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
+            <X className="h-6 w-6" />
           </button>
         </div>
 
-        <div ref={modalBodyRef} className="p-4 overflow-y-auto flex-grow">
+        <div
+          ref={modalBodyRef}
+          className="p-6 overflow-y-auto flex-grow bg-gray-50/50"
+        >
           {!isAdminUser && !isLoading && (
             <div
-              className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded"
+              className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg flex items-center"
               role="alert"
             >
-              <p className="font-bold">Access Denied</p>
-              <p>
-                {error || "You must be an administrator to use this feature."}
-              </p>
+              <AlertTriangle className="h-5 w-5 mr-3" />
+              <div>
+                <p className="font-bold">Acesso Negado</p>
+                <p>
+                  {error ||
+                    "Você precisa ser um administrador para usar este recurso."}
+                </p>
+              </div>
             </div>
           )}
 
           {isAdminUser && (
             <>
               {isLoading && (
-                <div className="text-center py-10 text-gray-500">
-                  Loading user data...
+                <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                  <LoaderCircle className="w-10 h-10 animate-spin text-[#2e7675] mb-3" />
+                  <p>Carregando dados...</p>
                 </div>
               )}
 
               {error &&
                 !showAddUserModal &&
                 !showEditUserModal &&
-                !showConfirmModal /* Hide main error if a sub-modal or confirm modal is active and showing its own error */ &&
+                !showConfirmModal &&
                 !isLoading && (
                   <div
-                    className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded relative mb-4 text-sm"
+                    className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded relative mb-4 text-sm flex items-center"
                     role="alert"
                   >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
                     {error}
                   </div>
                 )}
 
               {!isLoading && (
                 <>
-                  <div className="mb-4">
+                  <div className="mb-6 flex justify-between items-center">
+                    <p className="text-sm text-gray-500">
+                      Total de usuários:{" "}
+                      <span className="font-semibold text-gray-900">
+                        {users.length}
+                      </span>
+                    </p>
                     <button
                       onClick={() => {
                         setError(null); // Clear any previous main errors
                         resetAddUserForm(); // Reset form fields and specific errors
                         setShowAddUserModal(true);
                       }}
-                      className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow-md focus:outline-none focus:ring-2 focus:ring-green-300"
+                      className="inline-flex items-center gap-2 bg-[#2e7675] hover:bg-[#256160] text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675]"
                     >
+                      <UserPlus className="h-4 w-4" />
                       Adicionar usuário
                     </button>
                   </div>
 
                   {users.length === 0 && !error && !isLoading && (
-                    <p className="text-center text-gray-500 py-5">
-                      No users found.
-                    </p>
+                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                      <p className="text-gray-500">
+                        Nenhum usuário encontrado.
+                      </p>
+                    </div>
                   )}
 
                   {users.length > 0 && (
-                    <div className="overflow-x-auto shadow-md rounded-lg border border-gray-200">
+                    <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-xl bg-white">
                       <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-100">
+                        <thead className="bg-gray-50">
                           <tr>
                             <th
                               scope="col"
-                              className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                              className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                             >
                               ID
                             </th>
                             <th
                               scope="col"
-                              className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                              className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                             >
-                              Username
+                              Usuário
                             </th>
                             <th
                               scope="col"
-                              className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                              className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                             >
                               Admin
                             </th>
                             <th
                               scope="col"
-                              className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                              className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                             >
-                              JWT expiration
+                              Expiração JWT
                             </th>
                             <th
                               scope="col"
-                              className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                              className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                             >
                               Acesso (IDs)
                             </th>
                             <th
                               scope="col"
-                              className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                              className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                             >
                               Criado em
                             </th>
                             <th
                               scope="col"
-                              className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                              className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
                             >
                               Ações
                             </th>
@@ -750,58 +750,66 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
                               key={user.id}
                               className="hover:bg-gray-50 transition-colors duration-150"
                             >
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {user.id}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 {user.username}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 {user.is_admin ? (
-                                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                    Yes
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <Check className="w-3 h-3 mr-1" /> Sim
                                   </span>
                                 ) : (
-                                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                    No
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    Não
                                   </span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {user.jwt_expiration}
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {user.jwt_expiration === "inf"
+                                  ? "Infinito"
+                                  : "Padrão"}
                               </td>
-                              <td
-                                className="px-4 py-3 text-sm text-gray-500 truncate max-w-[150px] sm:max-w-xs"
-                                title={user.access || "-"}
-                              >
-                                {user.access || "-"}
+                              <td className="px-6 py-4 text-sm text-gray-500">
+                                <div
+                                  className="truncate max-w-[150px]"
+                                  title={user.access || "Nenhum"}
+                                >
+                                  {user.access || "-"}
+                                </div>
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {user.created_at
                                   ? new Date(
                                       user.created_at
                                     ).toLocaleDateString()
                                   : "-"}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium space-x-2">
-                                <button
-                                  onClick={() => {
-                                    setError(null); // Clear main error
-                                    openEditModal(user);
-                                  }}
-                                  className="text-indigo-600 hover:text-indigo-800 transition-colors"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setError(null); // Clear main error
-                                    handleDeleteUser(user.id);
-                                  }}
-                                  className="text-red-600 hover:text-red-800 transition-colors"
-                                >
-                                  Remover
-                                </button>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div className="flex justify-end gap-3">
+                                  <button
+                                    onClick={() => {
+                                      setError(null); // Clear main error
+                                      openEditModal(user);
+                                    }}
+                                    className="text-indigo-600 hover:text-indigo-900 transition-colors p-1 rounded hover:bg-indigo-50"
+                                    title="Editar"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setError(null); // Clear main error
+                                      handleDeleteUser(user.id);
+                                    }}
+                                    className="text-red-600 hover:text-red-900 transition-colors p-1 rounded hover:bg-red-50"
+                                    title="Remover"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -824,7 +832,7 @@ const UserManager: React.FC<UserManagerProps> = ({ onClose }) => {
       {showEditUserModal &&
         currentUserToEdit &&
         renderSubModal(
-          `Edit User: ${currentUserToEdit.username}`,
+          `Editar Usuário: ${currentUserToEdit.username}`,
           editUserFormContent || <div />, // Fallback if editUserFormContent is null
           () => {
             setShowEditUserModal(false);
