@@ -124,6 +124,7 @@ class UserLogin(APIView):
             value=access_token,
             httponly=True,
             secure=False,
+            domain="indicadores.samur.br",
             samesite="Lax",
             path="/",
             max_age=60 * 60 * 24 * 365 * 20 if user[2]=="inf" else 60 * 60 * 24 * 1

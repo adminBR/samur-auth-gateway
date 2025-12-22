@@ -209,6 +209,15 @@ export default function Dashboard() {
       {/* Main content - Restored green border effect via margin and background */}
       <main className="flex-1 bg-gray-50 m-2 rounded-xl overflow-y-auto p-4 sm:p-6 shadow-2xl">
         <div className="w-full h-full">
+          <div className="flex items-center gap-2 mb-4 bg-yellow-100/90 text-yellow-900 px-3 py-2 rounded-md text-xs sm:text-sm shadow-sm">
+            <span className="font-semibold uppercase tracking-wide">
+              Aviso:
+            </span>
+            <span className="leading-snug">
+              Se estiver tendo problemas para acessar as dashboards, Saia da
+              conta e entre novamente.
+            </span>
+          </div>
           <div className="min-h-[300px]">
             {filteredServices.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
