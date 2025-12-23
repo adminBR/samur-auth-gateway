@@ -54,6 +54,7 @@ export default function Dashboard() {
   });
 
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [showInfoPopup, setShowInfoPopup] = useState<boolean>(true);
 
   // Search functionality
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -209,6 +210,36 @@ export default function Dashboard() {
       {/* Main content - Restored green border effect via margin and background */}
       <main className="flex-1 bg-gray-50 m-2 rounded-xl overflow-y-auto p-4 sm:p-6 shadow-2xl">
         <div className="w-full h-full">
+          {showInfoPopup && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4 py-8">
+              <div className="bg-white rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] max-w-md w-full p-8 text-center space-y-5 border border-[#2e7675]/20">
+                <div className="w-14 h-14 mx-auto rounded-full bg-[#2e7675]/15 text-[#2e7675] flex items-center justify-center text-2xl font-black">
+                  !
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold tracking-[0.3em] uppercase text-[#2e7675]">
+                    Informação
+                  </p>
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  O endereço anterior{" "}
+                  <strong className="text-gray-900">192.168.2.131</strong> foi
+                  descontinuado para garantir mais estabilidade e segurança.
+                  Acesse o painel usando{" "}
+                  <strong className="text-[#2e7675]">
+                    indicadores.samur.br
+                  </strong>{" "}
+                  .
+                </p>
+                <button
+                  onClick={() => setShowInfoPopup(false)}
+                  className="inline-flex justify-center py-3 px-5 text-sm font-semibold rounded-xl text-white bg-[#2e7675] hover:bg-[#256160] transition-colors shadow-md"
+                >
+                  Entendi, pode fechar
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2 mb-4 bg-yellow-100/90 text-yellow-900 px-3 py-2 rounded-md text-xs sm:text-sm shadow-sm">
             <span className="font-semibold uppercase tracking-wide">
               Aviso:
