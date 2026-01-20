@@ -35,7 +35,21 @@ export default function LoginPage() {
         await loginUser(username, password);
         navigate("/");
       } catch (err) {
-        setErrorMessage("Usuário ou senha inválidos.");
+        const error = err as {
+          response?: { status?: number };
+          request?: unknown;
+        };
+        if (error.response?.status === 401) {
+          setErrorMessage("Usuário ou senha inválidos.");
+        } else if (error.request && !error.response) {
+          setErrorMessage(
+            "Servidor indisponível. Tente novamente em alguns minutos.",
+          );
+        } else {
+          setErrorMessage(
+            "Não foi possível completar o login. Tente novamente.",
+          );
+        }
         console.error("Login error:", err);
       } finally {
         setIsLoading(false);
