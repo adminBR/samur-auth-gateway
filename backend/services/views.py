@@ -62,7 +62,11 @@ class ServicesManager(APIView):
                 "srv_image": base64.b64encode(row[1]).decode('utf-8') if row[1] else None,
                 "srv_name": row[2],
                 "srv_ip": row[3],
-                "srv_desc": row[4]
+                "srv_desc": row[4],
+                "rt_location_path": row[5],
+                "rt_proxy_pass": row[6],
+                "rt_proxy_params": row[7],
+                "rt_custom_params": row[8],
             } for row in result
         ]
             resp = Response({"message": "success", "content": services_list})
@@ -89,6 +93,10 @@ class ServicesManager(APIView):
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
         srv_desc = request.data.get('srv_desc')
+        rt_location_path = request.data.get('rt_location_path', '')
+        rt_proxy_pass = request.data.get('rt_proxy_pass', '')
+        rt_proxy_params = request.data.get('rt_proxy_params', '')
+        rt_custom_params = request.data.get('rt_custom_params', '')
         srv_image_file = request.FILES.get('srv_image')
 
 
@@ -100,8 +108,19 @@ class ServicesManager(APIView):
 
         file_bytes = uploaded_file.read()
         try:
-            cur.execute("insert into services_info (srv_image, srv_name, srv_ip, srv_desc) values(%s,%s,%s,%s) returning srv_id",
-                        (psycopg2.Binary(file_bytes),srv_name,srv_ip,srv_desc,))
+            cur.execute(
+                "insert into services_info (srv_image, srv_name, srv_ip, srv_desc, rt_location_path, rt_proxy_pass, rt_proxy_params, rt_custom_params) values(%s,%s,%s,%s,%s,%s,%s,%s) returning srv_id",
+                (
+                    psycopg2.Binary(file_bytes),
+                    srv_name,
+                    srv_ip,
+                    srv_desc,
+                    rt_location_path,
+                    rt_proxy_pass,
+                    rt_proxy_params,
+                    rt_custom_params,
+                ),
+            )
             result = cur.fetchone()
             _service_id = result[0]
             cur.execute("SELECT usr_access FROM usr_info WHERE usr_id = %s", (user_id,))
@@ -147,6 +166,10 @@ class ServicesManagerUpdate(APIView):
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
         srv_desc = request.data.get('srv_desc')
+        rt_location_path = request.data.get('rt_location_path')
+        rt_proxy_pass = request.data.get('rt_proxy_pass')
+        rt_proxy_params = request.data.get('rt_proxy_params')
+        rt_custom_params = request.data.get('rt_custom_params')
         srv_image_file = request.FILES.get('srv_image')
 
         query = "UPDATE services_info SET "
@@ -177,6 +200,22 @@ class ServicesManagerUpdate(APIView):
         if srv_desc:
             fields.append("srv_desc = %s")
             values.append(srv_desc)
+
+        if rt_location_path is not None:
+            fields.append("rt_location_path = %s")
+            values.append(rt_location_path)
+
+        if rt_proxy_pass is not None:
+            fields.append("rt_proxy_pass = %s")
+            values.append(rt_proxy_pass)
+
+        if rt_proxy_params is not None:
+            fields.append("rt_proxy_params = %s")
+            values.append(rt_proxy_params)
+
+        if rt_custom_params is not None:
+            fields.append("rt_custom_params = %s")
+            values.append(rt_custom_params)
 
         if not fields:
             cur.close() # Close cursor and connection
@@ -231,4 +270,3 @@ class ServicesManagerUpdate(APIView):
             conn.close()
 
         return Response({"message": "Service deleted successfully", "id": service_id}, status=status.HTTP_200_OK)
-    
