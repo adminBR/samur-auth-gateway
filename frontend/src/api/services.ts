@@ -23,3 +23,8 @@ export const deleteService = async (id: number) => {
   const res = await api.delete(`api_gateway/v1/services/${id}`);
   return res.data;
 };
+
+export const getNginxConfig = async () => {
+  const res = await api.get("api_gateway/v1/services/nginx/config/");
+  return res.data;
+};

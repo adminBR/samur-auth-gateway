@@ -1,6 +1,13 @@
 // src/components/Navbar.tsx
 import React from "react";
-import { LogOut, Search, Plus, Users, LoaderCircle } from "lucide-react";
+import {
+  LogOut,
+  Search,
+  Plus,
+  Users,
+  LoaderCircle,
+  Settings,
+} from "lucide-react";
 
 export interface NavbarProps {
   searchTerm: string;
@@ -9,6 +16,7 @@ export interface NavbarProps {
   isAdmin: boolean;
   onAddService: () => void;
   onManageUsers: () => void;
+  onViewNginxConfig: () => void;
   isAddLoading: boolean;
 }
 
@@ -19,6 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isAdmin,
   onAddService,
   onManageUsers,
+  onViewNginxConfig,
   isAddLoading,
 }) => {
   return (
@@ -80,6 +89,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <Users className="h-4 w-4" />
                   <span className="hidden md:inline">Gerenciar usuários</span>
+                </button>
+                <button
+                  onClick={onViewNginxConfig}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-white/20 hover:bg-white/30 transition-colors"
+                  title="Ver configuração NGINX"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden md:inline">Config NGINX</span>
                 </button>
               </div>
             )}

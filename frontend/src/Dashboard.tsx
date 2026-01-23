@@ -7,11 +7,13 @@ import {
   updateService,
   addService,
   deleteService,
+  getNginxConfig,
 } from "./api/services";
 import { logoutUser } from "./api/axios";
 import { Navbar } from "./components/Navbar";
 import UserManager from "./components/UserManager";
 import ServiceModal from "./components/ServiceModal";
+import NginxConfigModal from "./components/NginxConfigModal";
 
 // Define interfaces for our data types
 interface ServiceType {
@@ -41,6 +43,9 @@ export default function Dashboard() {
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [userManager, setUserManager] = useState<boolean>(false);
+  const [nginxConfigModal, setNginxConfigModal] = useState<boolean>(false);
+  const [nginxConfig, setNginxConfig] = useState<string | null>(null);
+  const [isNginxLoading, setIsNginxLoading] = useState<boolean>(false);
 
   const [currentService, setCurrentService] = useState<
     ServiceType | Omit<ServiceType, "srv_id">
@@ -275,6 +280,23 @@ export default function Dashboard() {
     setUserManager(false);
   };
 
+  const handleViewNginxConfig = async () => {
+    try {
+      setIsNginxLoading(true);
+      const data = await getNginxConfig();
+      setNginxConfig(data.config);
+      setNginxConfigModal(true);
+    } catch (error) {
+      console.error("Error fetching nginx config:", error);
+    } finally {
+      setIsNginxLoading(false);
+    }
+  };
+
+  const handleCloseNginxModal = () => {
+    setNginxConfigModal(false);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#2e7675] overflow-hidden">
       {/* Header */}
@@ -285,6 +307,7 @@ export default function Dashboard() {
         isAdmin={isAdmin}
         onAddService={handleOpenAddModal}
         onManageUsers={() => setUserManager((prev) => !prev)}
+        onViewNginxConfig={handleViewNginxConfig}
         isAddLoading={isLoading}
       />
 
@@ -415,6 +438,13 @@ export default function Dashboard() {
       />
 
       {userManager && <UserManager onClose={handleCloseUserManager} />}
+
+      <NginxConfigModal
+        isOpen={nginxConfigModal}
+        onClose={handleCloseNginxModal}
+        config={nginxConfig}
+        isLoading={isNginxLoading}
+      />
     </div>
   );
 }
