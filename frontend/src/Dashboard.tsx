@@ -1,13 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Search,
-  Edit,
-  X,
-  LoaderCircle,
-  ExternalLink,
-  Globe,
-  ChevronDown,
-} from "lucide-react";
+import { Search, Edit, ExternalLink, Globe } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,6 +11,7 @@ import {
 import { logoutUser } from "./api/axios";
 import { Navbar } from "./components/Navbar";
 import UserManager from "./components/UserManager";
+import ServiceModal from "./components/ServiceModal";
 
 // Define interfaces for our data types
 interface ServiceType {
@@ -31,27 +24,27 @@ interface ServiceType {
   rt_proxy_pass?: string;
   rt_proxy_params?: string;
   rt_custom_params?: string;
+  rt_backend_location_path?: string;
+  rt_backend_proxy_pass?: string;
+  rt_backend_proxy_params?: string;
+  rt_backend_custom_params?: string;
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
   const [isRemoveLoading, setRemoveIsLoading] = useState<boolean>(false);
-  // Sample data for the service cards
   const [services, setServices] = useState<ServiceType[]>([]);
 
-  // State for managing edit modal
-  const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
-  const [currentService, setCurrentService] = useState<ServiceType | null>(
-    null,
-  );
-
-  // State for managing add modal
-  const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
+  // Unified modal state
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [userManager, setUserManager] = useState<boolean>(false);
-  const [newService, setNewService] = useState<Omit<ServiceType, "srv_id">>({
+
+  const [currentService, setCurrentService] = useState<
+    ServiceType | Omit<ServiceType, "srv_id">
+  >({
     srv_image: "/api/placeholder/200/150",
     srv_name: "",
     srv_ip: "",
@@ -60,14 +53,14 @@ export default function Dashboard() {
     rt_proxy_pass: "",
     rt_proxy_params: "",
     rt_custom_params: "",
+    rt_backend_location_path: "",
+    rt_backend_proxy_pass: "",
+    rt_backend_proxy_params: "",
+    rt_backend_custom_params: "",
   });
-  const [isAddAdvancedOpen, setIsAddAdvancedOpen] = useState<boolean>(false);
-  const [isEditAdvancedOpen, setIsEditAdvancedOpen] = useState<boolean>(false);
 
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [showInfoPopup, setShowInfoPopup] = useState<boolean>(true);
-
-  // Search functionality
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const filteredServices = services.filter(
@@ -100,21 +93,43 @@ export default function Dashboard() {
   const handleEditClick = (e: React.MouseEvent, service: ServiceType): void => {
     e.stopPropagation();
     setCurrentService(service);
-    setIsEditAdvancedOpen(
-      Boolean(
-        service.rt_location_path ||
-        service.rt_proxy_pass ||
-        service.rt_proxy_params ||
-        service.rt_custom_params,
-      ),
-    );
-    setEditModalOpen(true);
+    setIsEditMode(true);
+    setModalOpen(true);
+  };
+
+  // Function to handle add service modal open
+  const handleOpenAddModal = () => {
+    setIsEditMode(false);
+    setCurrentService({
+      srv_image: "/api/placeholder/200/150",
+      srv_name: "",
+      srv_ip: "",
+      srv_desc: "",
+      rt_location_path: "",
+      rt_proxy_pass: "",
+      rt_proxy_params: "",
+      rt_custom_params: "",
+      rt_backend_location_path: "",
+      rt_backend_proxy_pass: "",
+      rt_backend_proxy_params: "",
+      rt_backend_custom_params: "",
+    });
+    setPreviewImage(null);
+    setSelectedFile(null);
+    setModalOpen(true);
+  };
+
+  // Function to handle modal close
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setPreviewImage(null);
+    setSelectedFile(null);
   };
 
   // Function to handle service update
   const handleUpdateService = async (): Promise<void> => {
     try {
-      if (!currentService) return;
+      if (!("srv_id" in currentService)) return;
       setIsLoading(true);
 
       const formData = new FormData();
@@ -131,6 +146,22 @@ export default function Dashboard() {
         "rt_custom_params",
         currentService.rt_custom_params ?? "",
       );
+      formData.append(
+        "api_rt_location_path",
+        currentService.rt_backend_location_path ?? "",
+      );
+      formData.append(
+        "api_rt_proxy_pass",
+        currentService.rt_backend_proxy_pass ?? "",
+      );
+      formData.append(
+        "api_rt_proxy_params",
+        currentService.rt_backend_proxy_params ?? "",
+      );
+      formData.append(
+        "api_rt_custom_params",
+        currentService.rt_backend_custom_params ?? "",
+      );
       if (selectedFile) {
         formData.append("srv_image", selectedFile);
       }
@@ -140,10 +171,7 @@ export default function Dashboard() {
       const request = await getServices();
       setServices(request["content"] as ServiceType[]);
 
-      setEditModalOpen(false);
-      setIsEditAdvancedOpen(false);
-      setPreviewImage(null);
-      setSelectedFile(null);
+      handleCloseModal();
     } catch (err) {
       console.error("Error updating service:", err);
     } finally {
@@ -153,7 +181,7 @@ export default function Dashboard() {
 
   const handleDeleteService = async (): Promise<void> => {
     try {
-      if (!currentService) return;
+      if (!("srv_id" in currentService)) return;
       setRemoveIsLoading(true);
 
       await deleteService(currentService.srv_id);
@@ -162,12 +190,9 @@ export default function Dashboard() {
       const request = await getServices();
       setServices(request["content"] as ServiceType[]);
 
-      setEditModalOpen(false);
-      setIsEditAdvancedOpen(false);
-      setPreviewImage(null);
-      setSelectedFile(null);
+      handleCloseModal();
     } catch (err) {
-      console.error("Error updating service:", err);
+      console.error("Error deleting service:", err);
     } finally {
       setRemoveIsLoading(false);
     }
@@ -178,13 +203,35 @@ export default function Dashboard() {
     try {
       setIsLoading(true);
       const formData = new FormData();
-      formData.append("srv_name", newService.srv_name);
-      formData.append("srv_ip", newService.srv_ip);
-      formData.append("srv_desc", newService.srv_desc);
-      formData.append("rt_location_path", newService.rt_location_path ?? "");
-      formData.append("rt_proxy_pass", newService.rt_proxy_pass ?? "");
-      formData.append("rt_proxy_params", newService.rt_proxy_params ?? "");
-      formData.append("rt_custom_params", newService.rt_custom_params ?? "");
+      formData.append("srv_name", currentService.srv_name);
+      formData.append("srv_ip", currentService.srv_ip);
+      formData.append("srv_desc", currentService.srv_desc);
+      formData.append(
+        "rt_location_path",
+        currentService.rt_location_path ?? "",
+      );
+      formData.append("rt_proxy_pass", currentService.rt_proxy_pass ?? "");
+      formData.append("rt_proxy_params", currentService.rt_proxy_params ?? "");
+      formData.append(
+        "rt_custom_params",
+        currentService.rt_custom_params ?? "",
+      );
+      formData.append(
+        "api_rt_location_path",
+        currentService.rt_backend_location_path ?? "",
+      );
+      formData.append(
+        "api_rt_proxy_pass",
+        currentService.rt_backend_proxy_pass ?? "",
+      );
+      formData.append(
+        "api_rt_proxy_params",
+        currentService.rt_backend_proxy_params ?? "",
+      );
+      formData.append(
+        "api_rt_custom_params",
+        currentService.rt_backend_custom_params ?? "",
+      );
       if (selectedFile) {
         formData.append("srv_image", selectedFile);
       }
@@ -194,15 +241,21 @@ export default function Dashboard() {
       const request = await getServices();
       setServices(request["content"] as ServiceType[]);
 
-      setAddModalOpen(false);
-      setIsAddAdvancedOpen(false);
-      setPreviewImage(null);
-      setSelectedFile(null);
+      handleCloseModal();
     } catch (err) {
       console.error("Error adding service:", err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   useEffect(() => {
@@ -230,20 +283,7 @@ export default function Dashboard() {
         setSearchTerm={setSearchTerm}
         searchTerm={searchTerm}
         isAdmin={isAdmin}
-        onAddService={() => {
-          setIsAddAdvancedOpen(false);
-          setAddModalOpen(true);
-          setNewService({
-            srv_image: "/api/placeholder/200/150",
-            srv_name: "",
-            srv_ip: "",
-            srv_desc: "",
-            rt_location_path: "",
-            rt_proxy_pass: "",
-            rt_proxy_params: "",
-            rt_custom_params: "",
-          });
-        }}
+        onAddService={handleOpenAddModal}
         onManageUsers={() => setUserManager((prev) => !prev)}
         isAddLoading={isLoading}
       />
@@ -359,497 +399,22 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Edit Modal */}
-      {editModalOpen && currentService && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center p-4">
-          <div
-            className={`relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden transition-all duration-300 ${
-              isEditAdvancedOpen ? "max-w-4xl" : "max-w-md"
-            }`}
-          >
-            <div className="flex justify-between items-center p-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Editar Serviço
-              </h3>
-              <button
-                onClick={() => {
-                  setEditModalOpen(false);
-                  setIsEditAdvancedOpen(false);
-                }}
-                className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-gray-500">
-                  Atualize os dados básicos do serviço.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsEditAdvancedOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#2e7675] hover:text-[#256160] transition-colors"
-                >
-                  {isEditAdvancedOpen
-                    ? "Ocultar avançado (NGINX)"
-                    : "Mostrar avançado (NGINX)"}
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${
-                      isEditAdvancedOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div
-                className={`flex flex-col gap-6 ${
-                  isEditAdvancedOpen ? "lg:flex-row" : ""
-                }`}
-              >
-                <div className="flex-1 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nome do Serviço
-                    </label>
-                    <input
-                      type="text"
-                      value={currentService.srv_name}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setCurrentService({
-                          ...currentService,
-                          srv_name: e.target.value,
-                        })
-                      }
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Endereço IP
-                    </label>
-                    <input
-                      type="text"
-                      value={currentService.srv_ip}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setCurrentService({
-                          ...currentService,
-                          srv_ip: e.target.value,
-                        })
-                      }
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Descrição
-                    </label>
-                    <textarea
-                      value={currentService.srv_desc}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                        setCurrentService({
-                          ...currentService,
-                          srv_desc: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Imagem do Serviço
-                    </label>
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-[#2e7675] transition-colors cursor-pointer relative">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setSelectedFile(file);
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setPreviewImage(reader.result as string);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                      <div className="space-y-1 text-center">
-                        {previewImage ? (
-                          <img
-                            src={previewImage}
-                            alt="Preview"
-                            className="mx-auto h-32 object-cover rounded"
-                          />
-                        ) : (
-                          <div className="text-gray-500">
-                            <span className="text-[#2e7675] font-medium">
-                              Upload a file
-                            </span>{" "}
-                            or drag and drop
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {isEditAdvancedOpen && (
-                  <div className="w-full lg:max-w-sm rounded-xl space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Location
-                      </label>
-                      <input
-                        type="text"
-                        value={currentService.rt_location_path ?? ""}
-                        onChange={(e) =>
-                          setCurrentService({
-                            ...currentService,
-                            rt_location_path: e.target.value,
-                          })
-                        }
-                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                        placeholder="/dashboard"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Proxy pass
-                      </label>
-                      <input
-                        type="text"
-                        value={currentService.rt_proxy_pass ?? ""}
-                        onChange={(e) =>
-                          setCurrentService({
-                            ...currentService,
-                            rt_proxy_pass: e.target.value,
-                          })
-                        }
-                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                        placeholder="http://127.0.0.1:3000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Proxy params
-                      </label>
-                      <textarea
-                        value={currentService.rt_proxy_params ?? ""}
-                        onChange={(e) =>
-                          setCurrentService({
-                            ...currentService,
-                            rt_proxy_params: e.target.value,
-                          })
-                        }
-                        rows={3}
-                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                        placeholder="proxy_set_header Host $host;"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Custom params
-                      </label>
-                      <textarea
-                        value={currentService.rt_custom_params ?? ""}
-                        onChange={(e) =>
-                          setCurrentService({
-                            ...currentService,
-                            rt_custom_params: e.target.value,
-                          })
-                        }
-                        rows={3}
-                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                        placeholder="add_header X-Frame-Options SAMEORIGIN;"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="px-6 pb-6 flex justify-between items-center">
-              <button
-                onClick={handleDeleteService}
-                className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-              >
-                {isRemoveLoading ? (
-                  <LoaderCircle className="animate-spin w-5 h-5 text-white" />
-                ) : (
-                  <p>Remover</p>
-                )}
-              </button>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setEditModalOpen(false);
-                    setIsEditAdvancedOpen(false);
-                  }}
-                  className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleUpdateService}
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-[#2e7675] hover:bg-[#256160] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
-                >
-                  {isLoading ? (
-                    <LoaderCircle className="animate-spin w-5 h-5 text-white" />
-                  ) : (
-                    <p>Salvar</p>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Unified Modal */}
+      <ServiceModal
+        isOpen={modalOpen}
+        isLoading={isLoading}
+        isRemoveLoading={isRemoveLoading}
+        isEdit={isEditMode}
+        service={currentService}
+        onServiceChange={setCurrentService}
+        onSave={isEditMode ? handleUpdateService : handleAddService}
+        onDelete={isEditMode ? handleDeleteService : undefined}
+        onClose={handleCloseModal}
+        previewImage={previewImage}
+        onFileSelect={handleFileSelect}
+      />
 
       {userManager && <UserManager onClose={handleCloseUserManager} />}
-
-      {/* Add Modal */}
-      {addModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center p-4">
-          <div
-            className={`relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden transition-all duration-300 ${
-              isAddAdvancedOpen ? "max-w-4xl" : "max-w-md"
-            }`}
-          >
-            <div className="flex justify-between items-center p-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Adicionar Novo Serviço
-              </h3>
-              <button
-                onClick={() => {
-                  setAddModalOpen(false);
-                  setIsAddAdvancedOpen(false);
-                }}
-                className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-gray-500">
-                  Preencha os dados básicos do serviço.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsAddAdvancedOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#2e7675] hover:text-[#256160] transition-colors"
-                >
-                  {isAddAdvancedOpen
-                    ? "Ocultar avançado (NGINX)"
-                    : "Mostrar avançado (NGINX)"}
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${
-                      isAddAdvancedOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div
-                className={`flex flex-col  gap-6 ${
-                  isAddAdvancedOpen ? "lg:flex-row" : ""
-                }`}
-              >
-                <div className="flex-1 space-y-4 ">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nome do serviço
-                    </label>
-                    <input
-                      type="text"
-                      value={newService.srv_name}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setNewService({
-                          ...newService,
-                          srv_name: e.target.value,
-                        })
-                      }
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="Insira um nome"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Ip do serviço
-                    </label>
-                    <input
-                      type="text"
-                      value={newService.srv_ip}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setNewService({ ...newService, srv_ip: e.target.value })
-                      }
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="Insira um endereço ip (ex. 192.168.1.100)"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Descrição do serviço
-                    </label>
-                    <textarea
-                      value={newService.srv_desc}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                        setNewService({
-                          ...newService,
-                          srv_desc: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="Insira uma descrição sobre o funcionamento do serviço"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Imagem do serviço
-                    </label>
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-[#2e7675] transition-colors cursor-pointer relative">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setSelectedFile(file);
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setPreviewImage(reader.result as string);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                      <div className="space-y-1 text-center">
-                        {previewImage ? (
-                          <img
-                            src={previewImage}
-                            alt="Preview"
-                            className="mx-auto h-32 object-cover rounded"
-                          />
-                        ) : (
-                          <div className="text-gray-500">
-                            <span className="text-[#2e7675] font-medium">
-                              Upload a file
-                            </span>{" "}
-                            or drag and drop
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {isAddAdvancedOpen && (
-                  <div className="w-full lg:max-w-sm  rounded-xl  space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Location
-                      </label>
-                      <input
-                        type="text"
-                        value={newService.rt_location_path}
-                        onChange={(e) =>
-                          setNewService({
-                            ...newService,
-                            rt_location_path: e.target.value,
-                          })
-                        }
-                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                        placeholder="/dashboard"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Proxy pass
-                      </label>
-                      <input
-                        type="text"
-                        value={newService.rt_proxy_pass}
-                        onChange={(e) =>
-                          setNewService({
-                            ...newService,
-                            rt_proxy_pass: e.target.value,
-                          })
-                        }
-                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                        placeholder="http://127.0.0.1:3000"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Proxy params
-                      </label>
-                      <textarea
-                        value={newService.rt_proxy_params}
-                        onChange={(e) =>
-                          setNewService({
-                            ...newService,
-                            rt_proxy_params: e.target.value,
-                          })
-                        }
-                        rows={3}
-                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                        placeholder="proxy_set_header Host $host;"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Custom params
-                      </label>
-                      <textarea
-                        value={newService.rt_custom_params}
-                        onChange={(e) =>
-                          setNewService({
-                            ...newService,
-                            rt_custom_params: e.target.value,
-                          })
-                        }
-                        rows={3}
-                        className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                        placeholder="add_header X-Frame-Options SAMEORIGIN;"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="px-6 pb-6 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setAddModalOpen(false);
-                  setIsAddAdvancedOpen(false);
-                }}
-                className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAddService}
-                className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-[#2e7675] hover:bg-[#256160] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
-              >
-                {isLoading ? (
-                  <LoaderCircle className="animate-spin w-5 h-5 text-white" />
-                ) : (
-                  <p>Adicionar</p>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
