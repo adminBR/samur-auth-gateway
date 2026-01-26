@@ -65,8 +65,11 @@ export default function Dashboard() {
   });
 
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [showInfoPopup, setShowInfoPopup] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
+
+  //alert info
+  const [showInfoPopup, setShowInfoPopup] = useState<boolean>(false);
+  const [showTopBarAlert] = useState<boolean>(false);
 
   const filteredServices = services.filter(
     (service) =>
@@ -344,15 +347,17 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          <div className="flex items-center gap-2 mb-4 bg-yellow-100/90 text-yellow-900 px-3 py-2 rounded-md text-xs sm:text-sm shadow-sm">
-            <span className="font-semibold uppercase tracking-wide">
-              Aviso:
-            </span>
-            <span className="leading-snug">
-              Se estiver tendo problemas para acessar as dashboards, Saia da
-              conta e entre novamente.
-            </span>
-          </div>
+          {showTopBarAlert && (
+            <div className="flex items-center gap-2 mb-4 bg-yellow-100/90 text-yellow-900 px-3 py-2 rounded-md text-xs sm:text-sm shadow-sm">
+              <span className="font-semibold uppercase tracking-wide">
+                Aviso:
+              </span>
+              <span className="leading-snug">
+                Se estiver tendo problemas para acessar as dashboards, Saia da
+                conta e entre novamente.
+              </span>
+            </div>
+          )}
           <div className="min-h-[300px]">
             {filteredServices.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
