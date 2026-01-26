@@ -89,8 +89,12 @@ class NginxConfigBuilder:
         config = header + "\n" if header else ""
         
         for service in services_data:
+            srv_name = service.get('srv_name', 'Unknown Service')
+            srv_id = service.get('srv_id', 'Unknown Service')
+            
             # Build frontend location block if frontend config exists
             if service.get('rt_location_path'):
+                config += f"\n# —————————————————————————————— #\n# ID:{srv_id} {srv_name}\n# —————————————————————————————— #\n"
                 frontend_block = NginxConfigBuilder.build_location_block(
                     location_path=service['rt_location_path'],
                     service_id=int(service['srv_id']),
@@ -110,6 +114,7 @@ class NginxConfigBuilder:
             
             # Build backend location block if backend config exists
             if service.get('rt_backend_location_path'):
+                config += f"    # {srv_name}\n"
                 backend_block = NginxConfigBuilder.build_api_location_block(
                     location_path=service['rt_backend_location_path'],
                     service_id=int(service['srv_id']),

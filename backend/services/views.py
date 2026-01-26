@@ -383,7 +383,8 @@ class NginxConfigGenerator(APIView):
                     api.rt_location_path as api_rt_location_path,
                     api.rt_proxy_pass as api_rt_proxy_pass,
                     api.rt_proxy_params as api_rt_proxy_params,
-                    api.rt_custom_params as api_rt_custom_params
+                    api.rt_custom_params as api_rt_custom_params,
+                    si.srv_name
                 FROM services_info si
                 LEFT JOIN services_api_info api ON si.srv_id = api.srv_id
                 WHERE si.rt_location_path IS NOT NULL OR api.rt_location_path IS NOT NULL
@@ -410,6 +411,7 @@ class NginxConfigGenerator(APIView):
                     'rt_backend_proxy_pass': row[6],
                     'rt_backend_proxy_params': row[7],
                     'rt_backend_custom_params': row[8],
+                    'srv_name': row[9],
                 }
                 for row in result
             ]
