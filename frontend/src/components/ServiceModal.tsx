@@ -63,52 +63,52 @@ export default function ServiceModal({
   if (!isOpen) return null;
 
   const title = isEdit ? "Editar Serviço" : "Adicionar Novo Serviço";
-  const description = isEdit
-    ? "Atualize os dados básicos do serviço."
-    : "Preencha os dados básicos do serviço.";
   const buttonText = isEdit ? "Salvar" : "Adicionar";
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center p-4">
       <div
         className={`relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden transition-all duration-300 ${
-          isAdvancedOpen ? "max-w-4xl" : "max-w-md"
+          isAdvancedOpen ? "max-w-6xl" : "max-w-md"
         }`}
       >
         <div className="flex justify-between items-center p-4 border-b border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-600">NGINX</span>
+              <button
+                type="button"
+                onClick={() => setIsAdvancedOpen((prev) => !prev)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  isAdvancedOpen ? "bg-[#2e7675]" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isAdvancedOpen ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className="text-sm text-gray-500">{description}</p>
-            <button
-              type="button"
-              onClick={() => setIsAdvancedOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[#2e7675] hover:text-[#256160] transition-colors"
-            >
-              {isAdvancedOpen
-                ? "Ocultar avançado (NGINX)"
-                : "Mostrar avançado (NGINX)"}
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${
-                  isAdvancedOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-          </div>
           <div
-            className={`flex flex-col gap-6 ${
-              isAdvancedOpen ? "lg:flex-row" : ""
+            className={`grid gap-6 ${
+              isAdvancedOpen ? "grid-cols-1 lg:grid-cols-3" : ""
             }`}
           >
-            <div className="flex-1 space-y-4">
+            <div
+              className={`${isAdvancedOpen ? "lg:col-span-1" : ""} space-y-4`}
+            >
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome do Serviço
@@ -196,9 +196,9 @@ export default function ServiceModal({
               </div>
             </div>
             {isAdvancedOpen && (
-              <div className="w-full lg:flex lg:gap-4">
+              <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6 h-[70vh]">
                 {/* Frontend NGINX Configuration */}
-                <div className="flex-1 rounded-xl space-y-4">
+                <div className="rounded-xl space-y-4">
                   <h4 className="text-sm font-semibold text-gray-900 mb-4">
                     Frontend (NGINX)
                   </h4>
@@ -273,7 +273,7 @@ export default function ServiceModal({
                 </div>
 
                 {/* Backend NGINX Configuration */}
-                <div className="flex-1 rounded-xl space-y-4">
+                <div className="rounded-xl space-y-4">
                   <h4 className="text-sm font-semibold text-gray-900 mb-4">
                     Backend (NGINX)
                   </h4>
