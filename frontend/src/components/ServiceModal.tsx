@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, LoaderCircle, ChevronDown } from "lucide-react";
+import { X, LoaderCircle } from "lucide-react";
 
 interface ServiceType {
   srv_id: number;
