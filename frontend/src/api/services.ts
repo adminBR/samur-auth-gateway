@@ -25,6 +25,6 @@ export const deleteService = async (id: number) => {
 };
 
 export const getNginxConfig = async () => {
-  const res = await api.get("api_gateway/v1/services/nginx/config/");
+  const res = await api.get("api_gateway/v1/nginx/config/");
   return res.data;
 };
