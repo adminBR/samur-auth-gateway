@@ -6,11 +6,15 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 import psycopg2
+import logging
+
 from utils.database import get_db_connection
 from utils.jwt import get_admin_user_from_token
 
 from .reference import HEADER_DEFAULT, FOOTER_DEFAULT
 from .nginx_builder import NginxConfigBuilder
+
+logger = logging.getLogger(__name__)
 
 
 class NginxConfigGeneratorView(APIView):
@@ -21,12 +25,14 @@ class NginxConfigGeneratorView(APIView):
         try:
             get_admin_user_from_token(request)
         except APIException as e:
+            logger.warning(f"Admin authentication failed for nginx config generation: {e.detail}")
             return Response({"detail": e.detail}, status=e.status_code)
 
         conn = get_db_connection()
         cur = conn.cursor()
 
         try:
+            logger.info("Fetching services data for nginx configuration generation")
             cur.execute("""
                 SELECT 
                     si.srv_id,
@@ -48,11 +54,13 @@ class NginxConfigGeneratorView(APIView):
             result = cur.fetchall()
             
             if not result:
+                logger.warning("No services with location paths found for nginx configuration")
                 return Response(
                     {"detail": "No services with location paths found"},
                     status=status.HTTP_204_NO_CONTENT
                 )
             
+            logger.debug(f"Retrieved {len(result)} services from database")
             services_data = [
                 {
                     'srv_id': row[0],
@@ -72,12 +80,14 @@ class NginxConfigGeneratorView(APIView):
             header = request.query_params.get('header', HEADER_DEFAULT)
             footer = request.query_params.get('footer', FOOTER_DEFAULT)
             
+            logger.debug(f"Building nginx config with {len(services_data)} services")
             nginx_config = NginxConfigBuilder.build_nginx_config(
                 services_data=services_data,
                 header=header,
                 footer=footer,
             )
             
+            logger.info(f"Nginx configuration generated successfully with {len(services_data)} services")
             return Response({
                 "message": "Nginx configuration generated successfully",
                 "config": nginx_config,
@@ -85,7 +95,11 @@ class NginxConfigGeneratorView(APIView):
             }, status=status.HTTP_200_OK)
 
         except psycopg2.Error as e:
+            logger.error(f"Database query execution failed during nginx config generation: {str(e)}", exc_info=True)
             raise APIException(f"Query execution failed: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error during nginx config generation: {str(e)}", exc_info=True)
+            raise
         finally:
             cur.close()
             conn.close()

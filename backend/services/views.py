@@ -8,11 +8,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser,FormParser # For file uploads
 
 import psycopg2
+import logging
+import os
+import base64
 
 from utils.database import get_db_connection
 from utils.jwt import get_admin_user_from_token
-import os
-import base64
+
+logger = logging.getLogger(__name__)
 
 
 class ServicesManager(APIView):
@@ -23,7 +26,7 @@ class ServicesManager(APIView):
         user_id = request.user.id
         conn = get_db_connection()
         cur = conn.cursor()
-        print(user_id)
+        logger.info(f"Fetching services for user_id: {user_id}")
         try:
             cur.execute("SELECT usr_access FROM usr_info ui WHERE ui.usr_id = %s", (user_id,))
             result = cur.fetchone()
@@ -67,10 +70,13 @@ class ServicesManager(APIView):
                 
                 services_list.append(service_data)
             
+            logger.info(f"Successfully retrieved {len(services_list)} services for user_id: {user_id}")
             resp = Response({"message": "success", "content": services_list})
             return resp
             
-        
+        except Exception as e:
+            logger.error(f"Error fetching services for user_id {user_id}: {str(e)}", exc_info=True)
+            raise
         finally:
             cur.close()
             conn.close()
@@ -80,13 +86,14 @@ class ServicesManager(APIView):
         try:
             get_admin_user_from_token(request)
         except APIException as e:
+            logger.warning(f"Admin authentication failed: {e.detail}")
             return Response({"detail": e.detail}, status=e.status_code)
         
         conn = get_db_connection()
         cur = conn.cursor()
         conn.autocommit = False
         user_id = request.user.id
-        print(request.data)
+        logger.debug(f"Creating new service with request data: {request.data}")
 
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
@@ -106,6 +113,7 @@ class ServicesManager(APIView):
         allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif']
         file_extension = os.path.splitext(uploaded_file.name.lower())
         if file_extension[1] not in allowed_extensions:
+            logger.warning(f"Invalid file extension '{file_extension[1]}' for service image upload")
             raise ValidationError({"detail": f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"})
 
         file_bytes = uploaded_file.read()
@@ -149,13 +157,15 @@ class ServicesManager(APIView):
                 _result_user_access = f"{_result_user_access},{result[0]}"
                 cur.execute("update usr_info set usr_access = %s WHERE usr_id = %s", (_result_user_access,user_id,))
             conn.commit()
+            logger.info(f"Service created successfully with srv_id: {_service_id} by user_id: {user_id}")
         
         except psycopg2.Error as e:
             conn.rollback()
-            print(e)
+            logger.error(f"Database error while creating service: {str(e)}", exc_info=True)
             raise APIException(f"Insert failed. {e}")
         except Exception as e:
-            print(e)
+            logger.error(f"Unexpected error while creating service: {str(e)}", exc_info=True)
+            raise
         finally:
             cur.close()
             conn.close()
@@ -172,11 +182,14 @@ class ServicesManagerUpdate(APIView):
         try:
             get_admin_user_from_token(request)
         except APIException as e:
+            logger.warning(f"Admin authentication failed for service update: {e.detail}")
             return Response({"detail": e.detail}, status=e.status_code)
 
         conn = get_db_connection()
         cur = conn.cursor()
         conn.autocommit = False
+
+        logger.debug(f"Updating service_id: {service_id} with request data: {request.data}")
 
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
@@ -286,10 +299,15 @@ class ServicesManagerUpdate(APIView):
                     )
             
             conn.commit()
+            logger.info(f"Service updated successfully with service_id: {service_id}")
 
         except psycopg2.Error as e:
             conn.rollback()
+            logger.error(f"Database error while updating service_id {service_id}: {str(e)}", exc_info=True)
             raise APIException(f"Update failed: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error while updating service_id {service_id}: {str(e)}", exc_info=True)
+            raise
         finally:
             cur.close()
             conn.close()
@@ -301,11 +319,14 @@ class ServicesManagerUpdate(APIView):
         try:
             get_admin_user_from_token(request)
         except APIException as e:
+            logger.warning(f"Admin authentication failed for service deletion: {e.detail}")
             return Response({"detail": e.detail}, status=e.status_code)
 
         conn = get_db_connection()
         cur = conn.cursor()
         conn.autocommit = False
+
+        logger.debug(f"Deleting service_id: {service_id}")
 
         try:
             # Check if service exists
@@ -321,9 +342,11 @@ class ServicesManagerUpdate(APIView):
             # Then delete the service
             cur.execute("DELETE FROM services_info WHERE srv_id = %s", (service_id,))
             conn.commit()
+            logger.info(f"Service deleted successfully with service_id: {service_id}")
 
         except psycopg2.Error as e:
             conn.rollback()
+            logger.error(f"Database error while deleting service_id {service_id}: {str(e)}", exc_info=True)
             raise APIException(f"Delete failed: {e}")
         finally:
             cur.close()
