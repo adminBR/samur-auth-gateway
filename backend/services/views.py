@@ -21,26 +21,6 @@ from paramiko import SSHClient
 from .nginx_builder import NginxConfigBuilder
 
 from .reference import HEADER_DEFAULT,FOOTER_DEFAULT
-
-class SshManager(APIView):
-    def get(self, request: Request):
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        try:
-            client.connect(hostname="192.168.1.64", username="ti", password="123Mudar")
-        except:
-            print("cant connect!")
-            raise APIException("Can't connect to ssh.")
-
-        stdin, stdout, stderr = client.exec_command('echo {} | sudo -S nginx -t'.format("123Mudar"))
-        return_string = stderr.read().decode()
-        #print(return_string)
-        client.close()
-        return Response({
-            "syntax_status": False if return_string.find("nginx: the configuration file /etc/nginx/nginx.conf syntax is ok") == -1 else True,
-            "test_status": False if return_string.find("nginx: configuration file /etc/nginx/nginx.conf test is successful") == -1 else True
-            })
-        
         
 
 class ServicesManager(APIView):
