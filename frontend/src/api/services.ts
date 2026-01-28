@@ -28,3 +28,13 @@ export const getNginxConfig = async () => {
   const res = await api.get("api_gateway/v1/nginx/config/");
   return res.data;
 };
+
+export const deployNginxConfig = async (config: string) => {
+  const res = await api.post("api_gateway/v1/nginx/deploy/", { config });
+  return res.data;
+};
+
+export const restoreNginxConfig = async () => {
+  const res = await api.post("api_gateway/v1/nginx/restore/");
+  return res.data;
+};
