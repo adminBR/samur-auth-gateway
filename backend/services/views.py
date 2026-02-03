@@ -32,41 +32,20 @@ class ServicesManager(APIView):
             result = cur.fetchone()
             user_services = result[0]
 
-            cur.execute(f"SELECT * FROM services_info si WHERE si.srv_id IN ({user_services}) order by si.srv_id")
+            cur.execute(f"SELECT srv_id, srv_image, srv_name, srv_ip, srv_desc, rt_frontend_block, rt_backend_block, rt_enabled FROM services_info si WHERE si.srv_id IN ({user_services}) order by si.srv_id")
             result = cur.fetchall()
             services_list = []
             for row in result:
-                srv_id = row[0]
-                # Fetch API config for this service
-                cur.execute(
-                    "SELECT rt_location_path, rt_proxy_pass, rt_proxy_params, rt_custom_params FROM services_api_info WHERE srv_id = %s",
-                    (srv_id,)
-                )
-                api_result = cur.fetchone()
-                
                 service_data = {
                     "srv_id": row[0],
                     "srv_image": base64.b64encode(row[1]).decode('utf-8') if row[1] else None,
                     "srv_name": row[2],
                     "srv_ip": row[3],
                     "srv_desc": row[4],
-                    "rt_location_path": row[5],
-                    "rt_proxy_pass": row[6],
-                    "rt_proxy_params": row[7],
-                    "rt_custom_params": row[8],
+                    "rt_frontend_block": row[5],
+                    "rt_backend_block": row[6],
+                    "rt_enabled": row[7],
                 }
-                
-                # Add API fields if they exist
-                if api_result:
-                    service_data["rt_backend_location_path"] = api_result[0]
-                    service_data["rt_backend_proxy_pass"] = api_result[1]
-                    service_data["rt_backend_proxy_params"] = api_result[2]
-                    service_data["rt_backend_custom_params"] = api_result[3]
-                else:
-                    service_data["rt_backend_location_path"] = None
-                    service_data["rt_backend_proxy_pass"] = None
-                    service_data["rt_backend_proxy_params"] = None
-                    service_data["rt_backend_custom_params"] = None
                 
                 services_list.append(service_data)
             
@@ -98,14 +77,9 @@ class ServicesManager(APIView):
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
         srv_desc = request.data.get('srv_desc')
-        rt_location_path = request.data.get('rt_location_path', '')
-        rt_proxy_pass = request.data.get('rt_proxy_pass', '')
-        rt_proxy_params = request.data.get('rt_proxy_params', '')
-        rt_custom_params = request.data.get('rt_custom_params', '')
-        api_rt_location_path = request.data.get('api_rt_location_path', '')
-        api_rt_proxy_pass = request.data.get('api_rt_proxy_pass', '')
-        api_rt_proxy_params = request.data.get('api_rt_proxy_params', '')
-        api_rt_custom_params = request.data.get('api_rt_custom_params', '')
+        rt_frontend_block = request.data.get('rt_frontend_block', '')
+        rt_backend_block = request.data.get('rt_backend_block', '')
+        rt_enabled = request.data.get('rt_enabled', True)
         srv_image_file = request.FILES.get('srv_image')
 
 
@@ -119,32 +93,19 @@ class ServicesManager(APIView):
         file_bytes = uploaded_file.read()
         try:
             cur.execute(
-                "insert into services_info (srv_image, srv_name, srv_ip, srv_desc, rt_location_path, rt_proxy_pass, rt_proxy_params, rt_custom_params) values(%s,%s,%s,%s,%s,%s,%s,%s) returning srv_id",
+                "insert into services_info (srv_image, srv_name, srv_ip, srv_desc, rt_frontend_block, rt_backend_block, rt_enabled) values(%s,%s,%s,%s,%s,%s,%s) returning srv_id",
                 (
                     psycopg2.Binary(file_bytes),
                     srv_name,
                     srv_ip,
                     srv_desc,
-                    rt_location_path,
-                    rt_proxy_pass,
-                    rt_proxy_params,
-                    rt_custom_params,
+                    rt_frontend_block,
+                    rt_backend_block,
+                    rt_enabled,
                 ),
             )
             result = cur.fetchone()
             _service_id = result[0]
-            
-            # Insert API config for this service
-            cur.execute(
-                "INSERT INTO services_api_info (srv_id, rt_location_path, rt_proxy_pass, rt_proxy_params, rt_custom_params) VALUES (%s, %s, %s, %s, %s)",
-                (
-                    _service_id,
-                    api_rt_location_path,
-                    api_rt_proxy_pass,
-                    api_rt_proxy_params,
-                    api_rt_custom_params,
-                ),
-            )
             
             cur.execute("SELECT usr_access FROM usr_info WHERE usr_id = %s", (user_id,))
             _result_user_access = cur.fetchone()[0]
@@ -153,8 +114,8 @@ class ServicesManager(APIView):
                 return Response({"detail": "User not found"}, status=status.HTTP_401_UNAUTHORIZED)
 
             allowed_services = _result_user_access.split(",")
-            if _service_id not in allowed_services:
-                _result_user_access = f"{_result_user_access},{result[0]}"
+            if str(_service_id) not in allowed_services:
+                _result_user_access = f"{_result_user_access},{_service_id}"
                 cur.execute("update usr_info set usr_access = %s WHERE usr_id = %s", (_result_user_access,user_id,))
             conn.commit()
             logger.info(f"Service created successfully with srv_id: {_service_id} by user_id: {user_id}")
@@ -194,14 +155,9 @@ class ServicesManagerUpdate(APIView):
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
         srv_desc = request.data.get('srv_desc')
-        rt_location_path = request.data.get('rt_location_path')
-        rt_proxy_pass = request.data.get('rt_proxy_pass')
-        rt_proxy_params = request.data.get('rt_proxy_params')
-        rt_custom_params = request.data.get('rt_custom_params')
-        api_rt_location_path = request.data.get('api_rt_location_path')
-        api_rt_proxy_pass = request.data.get('api_rt_proxy_pass')
-        api_rt_proxy_params = request.data.get('api_rt_proxy_params')
-        api_rt_custom_params = request.data.get('api_rt_custom_params')
+        rt_frontend_block = request.data.get('rt_frontend_block')
+        rt_backend_block = request.data.get('rt_backend_block')
+        rt_enabled = request.data.get('rt_enabled')
         srv_image_file = request.FILES.get('srv_image')
 
         query = "UPDATE services_info SET "
@@ -221,82 +177,35 @@ class ServicesManagerUpdate(APIView):
             fields.append("srv_image = %s")
             values.append(psycopg2.Binary(file_bytes))
 
-        if srv_name:
+        if srv_name is not None:
             fields.append("srv_name = %s")
             values.append(srv_name)
 
-        if srv_ip:
+        if srv_ip is not None:
             fields.append("srv_ip = %s")
             values.append(srv_ip)
 
-        if srv_desc:
+        if srv_desc is not None:
             fields.append("srv_desc = %s")
             values.append(srv_desc)
 
-        if rt_location_path is not None:
-            fields.append("rt_location_path = %s")
-            values.append(rt_location_path)
+        if rt_frontend_block is not None:
+            fields.append("rt_frontend_block = %s")
+            values.append(rt_frontend_block)
 
-        if rt_proxy_pass is not None:
-            fields.append("rt_proxy_pass = %s")
-            values.append(rt_proxy_pass)
+        if rt_backend_block is not None:
+            fields.append("rt_backend_block = %s")
+            values.append(rt_backend_block)
 
-        if rt_proxy_params is not None:
-            fields.append("rt_proxy_params = %s")
-            values.append(rt_proxy_params)
-
-        if rt_custom_params is not None:
-            fields.append("rt_custom_params = %s")
-            values.append(rt_custom_params)
+        if rt_enabled is not None:
+            fields.append("rt_enabled = %s")
+            values.append(rt_enabled)
 
         try:
-            # Update services_info if there are fields to update
             if fields:
                 query += ", ".join(fields) + " WHERE srv_id = %s"
                 values.append(service_id)
                 cur.execute(query, values)
-            
-            # Handle API config update - check if row exists
-            cur.execute("SELECT api_id FROM services_api_info WHERE srv_id = %s", (service_id,))
-            api_row_exists = cur.fetchone()
-            
-            api_fields = []
-            api_values = []
-            
-            if api_rt_location_path is not None:
-                api_fields.append("rt_location_path = %s")
-                api_values.append(api_rt_location_path)
-            
-            if api_rt_proxy_pass is not None:
-                api_fields.append("rt_proxy_pass = %s")
-                api_values.append(api_rt_proxy_pass)
-            
-            if api_rt_proxy_params is not None:
-                api_fields.append("rt_proxy_params = %s")
-                api_values.append(api_rt_proxy_params)
-            
-            if api_rt_custom_params is not None:
-                api_fields.append("rt_custom_params = %s")
-                api_values.append(api_rt_custom_params)
-            
-            if api_fields:
-                if api_row_exists:
-                    # Update existing API config
-                    api_query = "UPDATE services_api_info SET " + ", ".join(api_fields) + " WHERE srv_id = %s"
-                    api_values.append(service_id)
-                    cur.execute(api_query, api_values)
-                else:
-                    # Insert new API config if it doesn't exist
-                    cur.execute(
-                        "INSERT INTO services_api_info (srv_id, rt_location_path, rt_proxy_pass, rt_proxy_params, rt_custom_params) VALUES (%s, %s, %s, %s, %s)",
-                        (
-                            service_id,
-                            api_rt_location_path or '',
-                            api_rt_proxy_pass or '',
-                            api_rt_proxy_params or '',
-                            api_rt_custom_params or '',
-                        ),
-                    )
             
             conn.commit()
             logger.info(f"Service updated successfully with service_id: {service_id}")
@@ -336,10 +245,7 @@ class ServicesManagerUpdate(APIView):
                 conn.close()
                 return Response({"detail": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Delete API config first (foreign key)
-            cur.execute("DELETE FROM services_api_info WHERE srv_id = %s", (service_id,))
-            
-            # Then delete the service
+            # Delete the service (no need to delete from services_api_info anymore)
             cur.execute("DELETE FROM services_info WHERE srv_id = %s", (service_id,))
             conn.commit()
             logger.info(f"Service deleted successfully with service_id: {service_id}")

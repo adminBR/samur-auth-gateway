@@ -42,27 +42,21 @@ class NginxConfigGeneratorView(APIView):
             cur.execute("""
                 SELECT 
                     si.srv_id,
-                    si.rt_location_path,
-                    si.rt_proxy_pass,
-                    si.rt_proxy_params,
-                    si.rt_custom_params,
-                    api.rt_location_path as api_rt_location_path,
-                    api.rt_proxy_pass as api_rt_proxy_pass,
-                    api.rt_proxy_params as api_rt_proxy_params,
-                    api.rt_custom_params as api_rt_custom_params,
+                    si.rt_frontend_block,
+                    si.rt_backend_block,
+                    si.rt_enabled,
                     si.srv_name
                 FROM services_info si
-                LEFT JOIN services_api_info api ON si.srv_id = api.srv_id
-                WHERE si.rt_location_path IS NOT NULL OR api.rt_location_path IS NOT NULL
+                WHERE si.rt_enabled = true
                 ORDER BY si.srv_id
             """)
             
             result = cur.fetchall()
             
             if not result:
-                logger.warning("No services with location paths found for nginx configuration")
+                logger.warning("No enabled services found for nginx configuration")
                 return Response(
-                    {"detail": "No services with location paths found"},
+                    {"detail": "No enabled services found"},
                     status=status.HTTP_204_NO_CONTENT
                 )
             
@@ -70,15 +64,10 @@ class NginxConfigGeneratorView(APIView):
             services_data = [
                 {
                     'srv_id': row[0],
-                    'rt_location_path': row[1],
-                    'rt_proxy_pass': row[2],
-                    'rt_proxy_params': row[3],
-                    'rt_custom_params': row[4],
-                    'rt_backend_location_path': row[5],
-                    'rt_backend_proxy_pass': row[6],
-                    'rt_backend_proxy_params': row[7],
-                    'rt_backend_custom_params': row[8],
-                    'srv_name': row[9],
+                    'rt_frontend_block': row[1],
+                    'rt_backend_block': row[2],
+                    'rt_enabled': row[3],
+                    'srv_name': row[4],
                 }
                 for row in result
             ]

@@ -22,14 +22,9 @@ interface ServiceType {
   srv_name: string;
   srv_ip: string;
   srv_desc: string;
-  rt_location_path?: string;
-  rt_proxy_pass?: string;
-  rt_proxy_params?: string;
-  rt_custom_params?: string;
-  rt_backend_location_path?: string;
-  rt_backend_proxy_pass?: string;
-  rt_backend_proxy_params?: string;
-  rt_backend_custom_params?: string;
+  rt_frontend_block?: string;
+  rt_backend_block?: string;
+  rt_enabled?: boolean;
 }
 
 export default function Dashboard() {
@@ -54,14 +49,9 @@ export default function Dashboard() {
     srv_name: "",
     srv_ip: "",
     srv_desc: "",
-    rt_location_path: "",
-    rt_proxy_pass: "",
-    rt_proxy_params: "",
-    rt_custom_params: "",
-    rt_backend_location_path: "",
-    rt_backend_proxy_pass: "",
-    rt_backend_proxy_params: "",
-    rt_backend_custom_params: "",
+    rt_frontend_block: "",
+    rt_backend_block: "",
+    rt_enabled: true,
   });
 
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -113,14 +103,9 @@ export default function Dashboard() {
       srv_name: "",
       srv_ip: "",
       srv_desc: "",
-      rt_location_path: "",
-      rt_proxy_pass: "",
-      rt_proxy_params: "",
-      rt_custom_params: "",
-      rt_backend_location_path: "",
-      rt_backend_proxy_pass: "",
-      rt_backend_proxy_params: "",
-      rt_backend_custom_params: "",
+      rt_frontend_block: "",
+      rt_backend_block: "",
+      rt_enabled: true,
     });
     setPreviewImage(null);
     setSelectedFile(null);
@@ -145,31 +130,14 @@ export default function Dashboard() {
       formData.append("srv_ip", currentService.srv_ip);
       formData.append("srv_desc", currentService.srv_desc);
       formData.append(
-        "rt_location_path",
-        currentService.rt_location_path ?? "",
-      );
-      formData.append("rt_proxy_pass", currentService.rt_proxy_pass ?? "");
-      formData.append("rt_proxy_params", currentService.rt_proxy_params ?? "");
-      formData.append(
-        "rt_custom_params",
-        currentService.rt_custom_params ?? "",
+        "rt_frontend_block",
+        currentService.rt_frontend_block ?? "",
       );
       formData.append(
-        "api_rt_location_path",
-        currentService.rt_backend_location_path ?? "",
+        "rt_backend_block",
+        currentService.rt_backend_block ?? "",
       );
-      formData.append(
-        "api_rt_proxy_pass",
-        currentService.rt_backend_proxy_pass ?? "",
-      );
-      formData.append(
-        "api_rt_proxy_params",
-        currentService.rt_backend_proxy_params ?? "",
-      );
-      formData.append(
-        "api_rt_custom_params",
-        currentService.rt_backend_custom_params ?? "",
-      );
+      formData.append("rt_enabled", String(currentService.rt_enabled ?? true));
       if (selectedFile) {
         formData.append("srv_image", selectedFile);
       }
@@ -215,31 +183,14 @@ export default function Dashboard() {
       formData.append("srv_ip", currentService.srv_ip);
       formData.append("srv_desc", currentService.srv_desc);
       formData.append(
-        "rt_location_path",
-        currentService.rt_location_path ?? "",
-      );
-      formData.append("rt_proxy_pass", currentService.rt_proxy_pass ?? "");
-      formData.append("rt_proxy_params", currentService.rt_proxy_params ?? "");
-      formData.append(
-        "rt_custom_params",
-        currentService.rt_custom_params ?? "",
+        "rt_frontend_block",
+        currentService.rt_frontend_block ?? "",
       );
       formData.append(
-        "api_rt_location_path",
-        currentService.rt_backend_location_path ?? "",
+        "rt_backend_block",
+        currentService.rt_backend_block ?? "",
       );
-      formData.append(
-        "api_rt_proxy_pass",
-        currentService.rt_backend_proxy_pass ?? "",
-      );
-      formData.append(
-        "api_rt_proxy_params",
-        currentService.rt_backend_proxy_params ?? "",
-      );
-      formData.append(
-        "api_rt_custom_params",
-        currentService.rt_backend_custom_params ?? "",
-      );
+      formData.append("rt_enabled", String(currentService.rt_enabled ?? true));
       if (selectedFile) {
         formData.append("srv_image", selectedFile);
       }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, LoaderCircle } from "lucide-react";
+import { X, LoaderCircle, CheckCircle, XCircle } from "lucide-react";
 
 interface ServiceType {
   srv_id: number;
@@ -7,14 +7,9 @@ interface ServiceType {
   srv_name: string;
   srv_ip: string;
   srv_desc: string;
-  rt_location_path?: string;
-  rt_proxy_pass?: string;
-  rt_proxy_params?: string;
-  rt_custom_params?: string;
-  rt_backend_location_path?: string;
-  rt_backend_proxy_pass?: string;
-  rt_backend_proxy_params?: string;
-  rt_backend_custom_params?: string;
+  rt_frontend_block?: string;
+  rt_backend_block?: string;
+  rt_enabled?: boolean;
 }
 
 type EditableService = Omit<ServiceType, "srv_id"> & { srv_id?: number };
@@ -47,17 +42,7 @@ export default function ServiceModal({
   onFileSelect,
 }: ServiceModalProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(
-    isEdit &&
-      Boolean(
-        service.rt_location_path ||
-        service.rt_proxy_pass ||
-        service.rt_proxy_params ||
-        service.rt_custom_params ||
-        service.rt_backend_location_path ||
-        service.rt_backend_proxy_pass ||
-        service.rt_backend_proxy_params ||
-        service.rt_backend_custom_params,
-      ),
+    isEdit && Boolean(service.rt_frontend_block || service.rt_backend_block),
   );
 
   if (!isOpen) return null;
@@ -69,7 +54,7 @@ export default function ServiceModal({
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center p-4">
       <div
         className={`relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden transition-all duration-300 ${
-          isAdvancedOpen ? "max-w-6xl" : "max-w-md"
+          isAdvancedOpen ? "max-w-7xl" : "max-w-md"
         }`}
       >
         <div className="flex justify-between items-center p-4 border-b border-gray-100">
@@ -103,7 +88,7 @@ export default function ServiceModal({
         <div className="p-6 space-y-6">
           <div
             className={`grid gap-6 ${
-              isAdvancedOpen ? "grid-cols-1 lg:grid-cols-3" : ""
+              isAdvancedOpen ? "grid-cols-1 lg:grid-cols-4" : ""
             }`}
           >
             <div
@@ -195,160 +180,115 @@ export default function ServiceModal({
                 </div>
               </div>
             </div>
+
             {isAdvancedOpen && (
-              <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6 h-[70vh]">
-                {/* Frontend NGINX Configuration */}
-                <div className="rounded-xl space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-4">
+              <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-gray-900">
                     Frontend (NGINX)
                   </h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      value={service.rt_location_path ?? ""}
-                      onChange={(e) =>
-                        onServiceChange({
-                          ...service,
-                          rt_location_path: e.target.value,
-                        })
-                      }
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="/dashboard"
-                    />
+                  <textarea
+                    value={service.rt_frontend_block ?? ""}
+                    onChange={(e) =>
+                      onServiceChange({
+                        ...service,
+                        rt_frontend_block: e.target.value,
+                      })
+                    }
+                    rows={15}
+                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow font-mono whitespace-pre"
+                    placeholder="location / { ... }"
+                  />
+                  <div className="flex items-center gap-2">
+                    {service.rt_frontend_block?.includes(
+                      `set $service_id ${service.srv_id};`,
+                    ) ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className="text-xs text-gray-600">
+                      ID do Serviço (${service.srv_id})
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Proxy pass
-                    </label>
-                    <input
-                      type="text"
-                      value={service.rt_proxy_pass ?? ""}
-                      onChange={(e) =>
-                        onServiceChange({
-                          ...service,
-                          rt_proxy_pass: e.target.value,
-                        })
-                      }
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="http://127.0.0.1:3000"
-                    />
+                  <div className="flex items-center gap-2">
+                    {service.rt_frontend_block?.includes(
+                      "auth_request /_auth;",
+                    ) ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className="text-xs text-gray-600">
+                      Solicitação de Autenticação
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Proxy params
-                    </label>
-                    <textarea
-                      value={service.rt_proxy_params ?? ""}
-                      onChange={(e) =>
-                        onServiceChange({
-                          ...service,
-                          rt_proxy_params: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="proxy_set_header Host $host;"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Custom params
-                    </label>
-                    <textarea
-                      value={service.rt_custom_params ?? ""}
-                      onChange={(e) =>
-                        onServiceChange({
-                          ...service,
-                          rt_custom_params: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="add_header X-Frame-Options SAMEORIGIN;"
-                    />
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const cleanedIp = service.srv_ip.replace(
+                        "indicadores.samur.br",
+                        "",
+                      );
+                      const path = cleanedIp.startsWith("/")
+                        ? cleanedIp
+                        : "/" + cleanedIp;
+                      return service.rt_frontend_block?.includes(
+                        `location ${path}`,
+                      ) ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      );
+                    })()}
+                    <span className="text-xs text-gray-600">
+                      Localização do Frontend Correspondente
+                    </span>
                   </div>
                 </div>
-
-                {/* Backend NGINX Configuration */}
-                <div className="rounded-xl space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-4">
+                <div className="space-y-4">
+                  <h4 className="text-sm font-semibold text-gray-900">
                     Backend (NGINX)
                   </h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Location
-                    </label>
-                    <input
-                      type="text"
-                      value={service.rt_backend_location_path ?? ""}
-                      onChange={(e) =>
-                        onServiceChange({
-                          ...service,
-                          rt_backend_location_path: e.target.value,
-                        })
-                      }
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="/api"
-                    />
+                  <textarea
+                    value={service.rt_backend_block ?? ""}
+                    onChange={(e) =>
+                      onServiceChange({
+                        ...service,
+                        rt_backend_block: e.target.value,
+                      })
+                    }
+                    rows={15}
+                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow font-mono whitespace-pre"
+                    placeholder="location /api { ... }"
+                  />
+                  <div className="flex items-center gap-2">
+                    {service.rt_frontend_block?.includes(
+                      `set $service_id ${service.srv_id};`,
+                    ) ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className="text-xs text-gray-600">
+                      ID do Serviço (${service.srv_id})
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Proxy pass
-                    </label>
-                    <input
-                      type="text"
-                      value={service.rt_backend_proxy_pass ?? ""}
-                      onChange={(e) =>
-                        onServiceChange({
-                          ...service,
-                          rt_backend_proxy_pass: e.target.value,
-                        })
-                      }
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="http://127.0.0.1:8000"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Proxy params
-                    </label>
-                    <textarea
-                      value={service.rt_backend_proxy_params ?? ""}
-                      onChange={(e) =>
-                        onServiceChange({
-                          ...service,
-                          rt_backend_proxy_params: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="proxy_set_header Host $host;"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Custom params
-                    </label>
-                    <textarea
-                      value={service.rt_backend_custom_params ?? ""}
-                      onChange={(e) =>
-                        onServiceChange({
-                          ...service,
-                          rt_backend_custom_params: e.target.value,
-                        })
-                      }
-                      rows={3}
-                      className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                      placeholder="add_header X-Frame-Options SAMEORIGIN;"
-                    />
+                  <div className="flex items-center gap-2">
+                    {service.rt_frontend_block?.includes(
+                      "auth_request /_auth;",
+                    ) ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                    <span className="text-xs text-gray-600">
+                      Solicitação de Autenticação
+                    </span>
                   </div>
                 </div>
               </div>
-            )}{" "}
-          </div>{" "}
+            )}
+          </div>
         </div>
 
         <div className="px-6 pb-6 flex justify-between items-center">
