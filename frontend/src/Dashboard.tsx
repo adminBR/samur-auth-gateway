@@ -327,6 +327,11 @@ export default function Dashboard() {
                         alt={service.srv_name}
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                       />
+                      {!service.rt_enabled && (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                          Disabled
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-[#2e7675]/90 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                         <span className="text-white font-semibold flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full border border-white/40 hover:bg-white/30 transition-colors text-sm">
                           Acessar <ExternalLink className="w-3 h-3" />
