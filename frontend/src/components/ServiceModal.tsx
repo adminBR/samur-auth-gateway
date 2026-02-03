@@ -231,7 +231,11 @@ export default function ServiceModal({
                       <XCircle className="h-4 w-4 text-red-500" />
                     )}
                     <span className="text-xs text-gray-600">
-                      ID do Serviço (${service.srv_id})
+                      {service.rt_frontend_block?.includes(
+                        `set $service_id ${service.srv_id};`,
+                      )
+                        ? `ID do Serviço (${service.srv_id})`
+                        : `Faltando linha: set $service_id ${service.srv_id};`}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -243,7 +247,11 @@ export default function ServiceModal({
                       <XCircle className="h-4 w-4 text-red-500" />
                     )}
                     <span className="text-xs text-gray-600">
-                      Solicitação de Autenticação
+                      {service.rt_frontend_block?.includes(
+                        "auth_request /_auth;",
+                      )
+                        ? "Solicitação de Autenticação"
+                        : "Faltando linha: auth_request /_auth;"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -264,7 +272,20 @@ export default function ServiceModal({
                       );
                     })()}
                     <span className="text-xs text-gray-600">
-                      Localização do Frontend Correspondente
+                      {(() => {
+                        const cleanedIp = service.srv_ip.replace(
+                          "indicadores.samur.br",
+                          "",
+                        );
+                        const path = cleanedIp.startsWith("/")
+                          ? cleanedIp
+                          : "/" + cleanedIp;
+                        return service.rt_frontend_block?.includes(
+                          `location ${path}`,
+                        )
+                          ? "Localização do Frontend Correspondente"
+                          : `Faltando linha: location ${path}`;
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -285,7 +306,7 @@ export default function ServiceModal({
                     placeholder="location /api { ... }"
                   />
                   <div className="flex items-center gap-2">
-                    {service.rt_frontend_block?.includes(
+                    {service.rt_backend_block?.includes(
                       `set $service_id ${service.srv_id};`,
                     ) ? (
                       <CheckCircle className="h-4 w-4 text-green-500" />
@@ -293,11 +314,15 @@ export default function ServiceModal({
                       <XCircle className="h-4 w-4 text-red-500" />
                     )}
                     <span className="text-xs text-gray-600">
-                      ID do Serviço (${service.srv_id})
+                      {service.rt_backend_block?.includes(
+                        `set $service_id ${service.srv_id};`,
+                      )
+                        ? `ID do Serviço (${service.srv_id})`
+                        : `Faltando linha: set $service_id ${service.srv_id};`}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {service.rt_frontend_block?.includes(
+                    {service.rt_backend_block?.includes(
                       "auth_request /_auth;",
                     ) ? (
                       <CheckCircle className="h-4 w-4 text-green-500" />
@@ -305,7 +330,11 @@ export default function ServiceModal({
                       <XCircle className="h-4 w-4 text-red-500" />
                     )}
                     <span className="text-xs text-gray-600">
-                      Solicitação de Autenticação
+                      {service.rt_backend_block?.includes(
+                        "auth_request /_auth;",
+                      )
+                        ? "Solicitação de Autenticação"
+                        : "Faltando linha: auth_request /_auth;"}
                     </span>
                   </div>
                 </div>
