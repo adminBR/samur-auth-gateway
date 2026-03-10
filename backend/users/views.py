@@ -549,3 +549,57 @@ class AdminListAllServicesView(APIView):
             ]
         
         return Response(services_list, status=status.HTTP_200_OK)
+
+
+class UserMe(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        token = request.COOKIES.get('token')
+        auth = get_authorization_header(request).decode()
+
+        if not token:
+            if auth and auth.startswith('Bearer '):
+                token = auth.split(' ')[1]
+            else:
+                logger.warning("UserMe: No token provided")
+                return Response({"detail": "No token provided"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            payload = decode_token(token)
+            if payload["expiration"] != "inf":
+                expiration = datetime.fromisoformat(payload["expiration"])
+                if expiration < datetime.now(timezone.utc):
+                    return Response({"detail": "Token expired"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            user_id = payload["user_id"]
+            conn = get_db_connection()
+            cur = conn.cursor()
+            try:
+                cur.execute("SELECT usr_admin FROM usr_info WHERE usr_id = %s", (user_id,))
+                row = cur.fetchone()
+                if not row:
+                    return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+                is_admin = row[0]
+            except psycopg2.Error as e:
+                logger.error(f"Database error in UserMe: {str(e)}", exc_info=True)
+                raise APIException({"detail": "Database query error!"})
+            finally:
+                cur.close()
+                conn.close()
+
+            logger.info(f"UserMe: returned data for user_id {user_id}")
+            return Response({
+                "user_id": payload["user_id"],
+                "user_name": payload["user_name"],
+                "is_admin": is_admin
+            }, status=status.HTTP_200_OK)
+
+        except jwt.ExpiredSignatureError:
+            return Response({"detail": "Token expired"}, status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return Response({"detail": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            logger.error(f"Unexpected error in UserMe: {str(e)}", exc_info=True)
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

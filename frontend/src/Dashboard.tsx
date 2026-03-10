@@ -9,7 +9,7 @@ import {
   deleteService,
   getNginxConfig,
 } from "./api/services";
-import { logoutUser } from "./api/axios";
+import { logoutUser, getMe } from "./api/axios";
 import { Navbar } from "./components/Navbar";
 import UserManager from "./components/UserManager";
 import ServiceModal from "./components/ServiceModal";
@@ -55,6 +55,7 @@ export default function Dashboard() {
   });
 
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [userName, setUserName] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   //alert info
@@ -227,7 +228,17 @@ export default function Dashboard() {
       }
       setIsAdmin(localStorage.getItem("isAdmin") === "true" ? true : false);
     };
+    const fetchMe = async () => {
+      try {
+        const me = await getMe();
+        setUserName(me.user_name);
+        setIsAdmin(me.is_admin);
+      } catch {
+        setIsAdmin(localStorage.getItem("isAdmin") === "true");
+      }
+    };
     populateServices();
+    fetchMe();
   }, []); // Added dependency array to prevent infinite re-renders
 
   const handleCloseUserManager = () => {
@@ -259,6 +270,7 @@ export default function Dashboard() {
         setSearchTerm={setSearchTerm}
         searchTerm={searchTerm}
         isAdmin={isAdmin}
+        userName={userName}
         onAddService={handleOpenAddModal}
         onManageUsers={() => setUserManager((prev) => !prev)}
         onViewNginxConfig={handleViewNginxConfig}

@@ -54,7 +54,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // Auto-refresh access token on 401
@@ -100,7 +100,7 @@ api.interceptors.response.use(
     }*/
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export const loginUser = async (user_name: string, user_pass: string) => {
@@ -146,7 +146,7 @@ export const getAllUsersAdmin = async (): Promise<User[]> => {
 };
 
 export const createUserAdmin = async (
-  userData: NewUserPayload
+  userData: NewUserPayload,
 ): Promise<{ response: string; user: User }> => {
   const res = await api.post("api_gateway/v1/users/admin/", userData); // Adjust path
   return res.data;
@@ -159,14 +159,14 @@ export const getUserDetailsAdmin = async (userId: number): Promise<User> => {
 
 export const updateUserAdmin = async (
   userId: number,
-  userData: UpdateUserPayload
+  userData: UpdateUserPayload,
 ): Promise<{ response: string; user: User }> => {
   const res = await api.put(`api_gateway/v1/users/admin/${userId}/`, userData); // Adjust path
   return res.data;
 };
 
 export const deleteUserAdmin = async (
-  userId: number
+  userId: number,
 ): Promise<{ response: string }> => {
   const res = await api.delete(`api_gateway/v1/users/admin/${userId}/`); // Adjust path
   return res.data;
@@ -174,6 +174,19 @@ export const deleteUserAdmin = async (
 
 export const getAllServicesForAdmin = async (): Promise<AdminService[]> => {
   const res = await api.get("api_gateway/v1/users/admin/services/all/"); // Adjust path to match your Django urls.py
+  return res.data;
+};
+
+export interface MeResponse {
+  user_id: number;
+  user_name: string;
+  is_admin: boolean;
+}
+
+export const getMe = async (): Promise<MeResponse> => {
+  const res = await api.get("api_gateway/v1/users/me/", {
+    withCredentials: true,
+  });
   return res.data;
 };
 

@@ -1,11 +1,12 @@
 from django.contrib import admin
 from django.urls import path,include
 
-from .views import UserRegister,UserLogin,ValidateToken,RefreshToken,UserLogout,AdminAllUsersOperations, AdminSingleUserOperations,AdminListAllServicesView
+from .views import UserRegister,UserLogin,ValidateToken,RefreshToken,UserLogout,AdminAllUsersOperations, AdminSingleUserOperations,AdminListAllServicesView,UserMe
 
 urlpatterns = [
     #path('register/',UserRegister.as_view()),
     path('login/',UserLogin.as_view()),
+    path('me/', UserMe.as_view(), name='user-me'),
     path('logout',UserLogout.as_view()),
     path('validate',ValidateToken.as_view()),
     path('refresh/', RefreshToken.as_view()),

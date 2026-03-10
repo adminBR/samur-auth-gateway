@@ -1,5 +1,5 @@
 // src/components/Navbar.tsx
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   LogOut,
   Search,
@@ -7,6 +7,9 @@ import {
   Users,
   LoaderCircle,
   Settings,
+  UserCircle,
+  ShieldCheck,
+  User,
 } from "lucide-react";
 
 export interface NavbarProps {
@@ -14,6 +17,7 @@ export interface NavbarProps {
   setSearchTerm: (dashboard: string) => void;
   handleLogout: () => void;
   isAdmin: boolean;
+  userName: string;
   onAddService: () => void;
   onManageUsers: () => void;
   onViewNginxConfig: () => void;
@@ -25,11 +29,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSearchTerm,
   handleLogout,
   isAdmin,
+  userName,
   onAddService,
   onManageUsers,
   onViewNginxConfig,
   isAddLoading,
 }) => {
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <nav className="w-full bg-[#2e7675] shadow-md text-gray-100">
       <div className="w-full px-4 py-3">
@@ -100,13 +118,66 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               </div>
             )}
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-white/40 hover:bg-white/10 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Sair</span>
-            </button>
+
+            {/* User menu */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setUserMenuOpen((prev) => !prev)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-white/20 hover:bg-white/30 transition-colors"
+                title="Minha conta"
+              >
+                <UserCircle className="h-5 w-5" />
+                <span className="hidden sm:inline max-w-[120px] truncate">
+                  {userName || "Usuário"}
+                </span>
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[#2e7675]/15 text-[#2e7675] flex items-center justify-center">
+                        <UserCircle className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">
+                          {userName || "Usuário"}
+                        </p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {isAdmin ? (
+                            <>
+                              <ShieldCheck className="h-3.5 w-3.5 text-[#2e7675]" />
+                              <span className="text-xs text-[#2e7675] font-medium">
+                                Administrador
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <User className="h-3.5 w-3.5 text-gray-400" />
+                              <span className="text-xs text-gray-500">
+                                Usuário
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sair
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
