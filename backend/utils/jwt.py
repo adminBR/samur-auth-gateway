@@ -1,17 +1,11 @@
-from rest_framework.exceptions import ValidationError,APIException,AuthenticationFailed
-from rest_framework.response import Response
-from rest_framework import status
+from django.conf import settings
+from rest_framework.exceptions import APIException,AuthenticationFailed
 from rest_framework.authentication import get_authorization_header
 
 from utils import database
 
 from datetime import datetime,timedelta,timezone
 import jwt
-import re
-
-
-SECRET_KEY = "testkey"
-JWT_EXPIRATION = timedelta(days=1)
 
 def create_token(userid,username,timeInDays):
     payload = {
@@ -22,11 +16,11 @@ def create_token(userid,username,timeInDays):
         #"expiration":str("inf" if timeInDays == "inf" else datetime.now(tz=timezone.utc)+timedelta(minutes=timeInDays))
         }
     
-    token = jwt.encode(payload,SECRET_KEY,algorithm="HS256")
+    token = jwt.encode(payload,settings.SECRET_KEY,algorithm="HS256")
     return token
 
 def decode_token(token):
-    payload = jwt.decode(token,SECRET_KEY,algorithms=['HS256'])
+    payload = jwt.decode(token,settings.SECRET_KEY,algorithms=['HS256'])
     return payload
 
 

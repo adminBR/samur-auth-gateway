@@ -1,9 +1,7 @@
-from django.contrib.auth.models import AnonymousUser
+from django.conf import settings
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 import jwt
-
-SECRET_KEY = "testkey"
 
 class CustomUser:
     def __init__(self, user_id, username):
@@ -20,7 +18,7 @@ class JWTCustomAuth(BaseAuthentication):
         token = auth_header.split(" ")[1]
 
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             raise AuthenticationFailed("Token expired.")
         except jwt.InvalidTokenError:
