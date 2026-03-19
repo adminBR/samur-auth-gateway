@@ -62,9 +62,9 @@ FOOTER_DEFAULT = """
 # unauthenticated interceptor, sending back to login or return a json
 # ——————————————————————————————
 
-  #error_page 401 = @redirect_login;
+  error_page 401 = @redirect_login;
   location @redirect_login {
-    return 302 /login;  # or `/` depending on your front-end routing
+    return 302 /login?next=$request_uri;
   }
 # redirect when a host is invalid or offline
   error_page 502 = @invalid_page;
@@ -74,7 +74,7 @@ FOOTER_DEFAULT = """
   }
 
 # custom JSON 401
-  error_page 401 = @err401;
+#  error_page 401 = @err401;
   location @err401 {
     add_header Content-Type application/json;
     return 401 '{"error":"Unauthorized"}';

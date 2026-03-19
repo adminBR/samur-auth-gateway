@@ -7,9 +7,10 @@ import {
   AlertTriangle,
   LoaderCircle,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { loginUser } from "./api/axios"; // adjust path if needed
 import { isAuthenticated } from "./utils/auth";
+import { redirectAfterLogin, sanitizeNextPath } from "./utils/redirect";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -20,7 +21,10 @@ export default function LoginPage() {
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const navigate = useNavigate();
+  const location = useLocation();
+  const nextPath = sanitizeNextPath(
+    new URLSearchParams(location.search).get("next"),
+  );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     setErrorMessage(null);
@@ -33,7 +37,7 @@ export default function LoginPage() {
       try {
         console.log("logged");
         await loginUser(username, password);
-        navigate("/");
+        redirectAfterLogin(nextPath);
       } catch (err) {
         const error = err as {
           response?: { status?: number };
@@ -63,11 +67,16 @@ export default function LoginPage() {
       console.log(loggedIn);
       if (loggedIn) {
         console.log("navigating...");
-        navigate("/");
+        redirectAfterLogin(nextPath);
       }
     };
     checkLogin();
-  }, [navigate]); // add dependency to avoid infinite loop
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [nextPath]);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">

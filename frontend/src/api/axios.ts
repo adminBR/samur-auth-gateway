@@ -1,5 +1,6 @@
 // api/axios.ts
 import axios from "axios";
+import { buildLoginRedirectPath } from "../utils/redirect";
 
 // --- Types for User Management ---
 export interface User {
@@ -66,7 +67,7 @@ api.interceptors.response.use(
     if ([401, 403].includes(error.response?.status)) {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
-      window.location.href = "/login";
+      window.location.href = buildLoginRedirectPath();
       return Promise.reject(error);
     }
 
@@ -122,7 +123,9 @@ export const loginUser = async (user_name: string, user_pass: string) => {
 
 export const validateToken = async () => {
   try {
-    const res = await api.get("api_gateway/v1/users/validate");
+    const res = await api.get("api_gateway/v1/users/validate", {
+      withCredentials: true,
+    });
     return res.data; // { valid: true, user_id, user_name }
   } catch {
     return { valid: false };

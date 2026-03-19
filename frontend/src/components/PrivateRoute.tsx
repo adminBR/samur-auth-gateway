@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { isAuthenticated } from "../utils/auth";
+import { buildLoginRedirectPath } from "../utils/redirect";
 
 interface PrivateRouteProps {
   children: JSX.Element;
 }
 
 const PrivateRoute = ({ children }: PrivateRouteProps) => {
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
 
@@ -20,7 +22,16 @@ const PrivateRoute = ({ children }: PrivateRouteProps) => {
   }, []);
 
   if (loading) return <div>Loading...</div>;
-  return authorized ? children : <Navigate to="/login" />;
+  return authorized ? (
+    children
+  ) : (
+    <Navigate
+      replace
+      to={buildLoginRedirectPath(
+        `${location.pathname}${location.search}${location.hash}`,
+      )}
+    />
+  );
 };
 
 export default PrivateRoute;

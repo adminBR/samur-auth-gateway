@@ -9,5 +9,5 @@ export const isAuthenticated = async (): Promise<boolean> => {
     return false;
   }
   const res = await validateToken();
-  return res;
+  return Boolean(res?.user_id);
 };
