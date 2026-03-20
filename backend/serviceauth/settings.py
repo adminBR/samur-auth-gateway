@@ -1,46 +1,9 @@
 from datetime import timedelta
-import os
 from pathlib import Path
+from utils.env import env, env_bool, env_list
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-ENV_FILE = BASE_DIR / ".env"
-
-
-def load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        return
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
-
-
-def env(key: str, default: str | None = None) -> str | None:
-    return os.getenv(key, default)
-
-
-def env_bool(key: str, default: bool = False) -> bool:
-    value = os.getenv(key)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def env_list(key: str, default: list[str] | None = None) -> list[str]:
-    value = os.getenv(key)
-    if value is None:
-        return list(default or [])
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
-load_env_file(ENV_FILE)
 
 
 # Core settings
@@ -165,10 +128,20 @@ USE_TZ = True
 
 
 # CORS / CSRF
-CORS_ALLOW_ALL_ORIGINS = env_bool("DJANGO_CORS_ALLOW_ALL_ORIGINS", False)
+RAW_CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_ALL_ORIGINS = env_bool("DJANGO_CORS_ALLOW_ALL_ORIGINS", False) or (
+    "*" in RAW_CORS_ALLOWED_ORIGINS
+)
 CORS_ALLOW_CREDENTIALS = env_bool("DJANGO_CORS_ALLOW_CREDENTIALS", True)
-CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS")
-CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", CORS_ALLOWED_ORIGINS)
+CORS_ALLOWED_ORIGINS = [] if CORS_ALLOW_ALL_ORIGINS else RAW_CORS_ALLOWED_ORIGINS
+RAW_CSRF_TRUSTED_ORIGINS = env_list(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    [] if CORS_ALLOW_ALL_ORIGINS else RAW_CORS_ALLOWED_ORIGINS,
+)
+# Django does not accept "*" for CSRF trusted origins, so drop it if present.
+CSRF_TRUSTED_ORIGINS = [
+    origin for origin in RAW_CSRF_TRUSTED_ORIGINS if origin != "*"
+]
 
 
 # Static / media
