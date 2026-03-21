@@ -1,9 +1,9 @@
 // src/App.tsx
-import LoginPage from "./Login";
-import Dashboard from "./Dashboard";
-import NotFound from "./NotFound";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import PrivateRoute from "./components/PrivateRoute";
+import PrivateRoute from "./routes/PrivateRoute";
 
 function App() {
   return (
@@ -15,13 +15,13 @@ function App() {
             path="/"
             element={
               <PrivateRoute>
-                <Dashboard />
+                <DashboardPage />
               </PrivateRoute>
             }
           />
 
           {/* 1. This catches any path that wasn't matched above */}
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Router>
     </div>

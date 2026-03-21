@@ -1,4 +1,4 @@
-import type { IndicatorCategory } from "../constants/serviceCategories";
+import type { IndicatorCategory } from "../config/serviceCategories";
 
 export interface IndicatorService {
   srv_id: number;

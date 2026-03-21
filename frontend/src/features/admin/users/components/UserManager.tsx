@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/components/UserManager.tsx
 import React, { useState, FormEvent, useRef, useEffect } from "react";
 import {
   getAllUsersAdmin,
@@ -11,7 +10,7 @@ import {
   NewUserPayload,
   UpdateUserPayload,
   AdminService,
-} from "../api/axios"; // Adjust path
+} from "../../../../api/axios"; // Adjust path
 
 import {
   LoaderCircle,

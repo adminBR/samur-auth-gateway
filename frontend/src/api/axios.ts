@@ -1,7 +1,7 @@
 // api/axios.ts
 import axios from "axios";
 import { buildLoginRedirectPath } from "../utils/redirect";
-import type { IndicatorCategory } from "../constants/serviceCategories";
+import type { IndicatorCategory } from "../features/indicators";
 
 // --- Types for User Management ---
 export interface User {

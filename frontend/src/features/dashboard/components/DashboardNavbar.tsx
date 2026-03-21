@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   LoaderCircle,
@@ -11,7 +11,7 @@ import {
   Users,
 } from "lucide-react";
 
-export interface NavbarProps {
+export interface DashboardNavbarProps {
   searchTerm: string;
   setSearchTerm: (dashboard: string) => void;
   handleLogout: () => void;
@@ -24,7 +24,7 @@ export interface NavbarProps {
   isCondensed?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
+export function DashboardNavbar({
   searchTerm,
   setSearchTerm,
   handleLogout,
@@ -35,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onViewNginxConfig,
   isAddLoading,
   isCondensed = false,
-}) => {
+}: DashboardNavbarProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -189,4 +189,4 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
     </nav>
   );
-};
+}

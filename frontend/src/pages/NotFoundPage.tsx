@@ -1,7 +1,7 @@
 import { ArrowLeft, Compass, Home } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
-export default function NotFound() {
+export default function NotFoundPage() {
   const location = useLocation();
 
   return (

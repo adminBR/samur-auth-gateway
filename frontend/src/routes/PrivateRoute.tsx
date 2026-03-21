@@ -7,7 +7,7 @@ interface PrivateRouteProps {
   children: JSX.Element;
 }
 
-const PrivateRoute = ({ children }: PrivateRouteProps) => {
+export default function PrivateRoute({ children }: PrivateRouteProps) {
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -22,6 +22,7 @@ const PrivateRoute = ({ children }: PrivateRouteProps) => {
   }, []);
 
   if (loading) return <div>Loading...</div>;
+
   return authorized ? (
     children
   ) : (
@@ -32,6 +33,4 @@ const PrivateRoute = ({ children }: PrivateRouteProps) => {
       )}
     />
   );
-};
-
-export default PrivateRoute;
+}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, LoaderCircle, CheckCircle, XCircle } from "lucide-react";
-import { indicatorCategories } from "../constants/serviceCategories";
-import type { EditableIndicatorService } from "../types/indicatorService";
+import { indicatorCategories } from "../../../indicators/config/serviceCategories";
+import type { EditableIndicatorService } from "../../../indicators/types/indicatorService";
 
 interface ServiceModalProps {
   isOpen: boolean;

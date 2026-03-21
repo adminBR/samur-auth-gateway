@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, Copy, Download, LoaderCircle, Upload, History } from "lucide-react";
-import { deployNginxConfig, restoreNginxConfig } from "../api/services";
+import { deployNginxConfig, restoreNginxConfig } from "../../../../api/services";
 
 interface NginxConfigModalProps {
   isOpen: boolean;

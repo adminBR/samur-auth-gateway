@@ -9,9 +9,9 @@ import {
   User,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
-import { loginUser } from "./api/axios";
-import { isAuthenticated } from "./utils/auth";
-import { redirectAfterLogin, sanitizeNextPath } from "./utils/redirect";
+import { loginUser } from "../api/axios";
+import { isAuthenticated } from "../utils/auth";
+import { redirectAfterLogin, sanitizeNextPath } from "../utils/redirect";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -94,7 +94,7 @@ export default function LoginPage() {
           <div className="flex w-full max-w-xl flex-col justify-between">
             <div>
               <img
-                src="/s-b.webp"
+                src="/logo-white-with-name.webp"
                 alt="Indicadores Samur"
                 className="h-auto w-full max-w-[280px] object-contain"
               />
@@ -122,7 +122,7 @@ export default function LoginPage() {
           <div className="w-full max-w-md">
             <div className="lg:hidden">
               <img
-                src="/s-b.webp"
+                src="/logo-white-with-name.webp"
                 alt="Indicadores Samur"
                 className="h-auto w-full max-w-[220px] object-contain"
               />
