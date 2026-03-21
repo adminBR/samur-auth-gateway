@@ -1,26 +1,15 @@
 import { useState } from "react";
 import { X, LoaderCircle, CheckCircle, XCircle } from "lucide-react";
-
-interface ServiceType {
-  srv_id: number;
-  srv_image: Base64URLString;
-  srv_name: string;
-  srv_ip: string;
-  srv_desc: string;
-  rt_frontend_block?: string;
-  rt_backend_block?: string;
-  rt_enabled?: boolean;
-}
-
-type EditableService = Omit<ServiceType, "srv_id"> & { srv_id?: number };
+import { indicatorCategories } from "../constants/serviceCategories";
+import type { EditableIndicatorService } from "../types/indicatorService";
 
 interface ServiceModalProps {
   isOpen: boolean;
   isLoading: boolean;
   isRemoveLoading?: boolean;
   isEdit: boolean;
-  service: EditableService;
-  onServiceChange: (service: EditableService) => void;
+  service: EditableIndicatorService;
+  onServiceChange: (service: EditableIndicatorService) => void;
   onSave: () => Promise<void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
@@ -47,17 +36,17 @@ export default function ServiceModal({
 
   if (!isOpen) return null;
 
-  const title = isEdit ? "Editar Serviço" : "Adicionar Novo Serviço";
+  const title = isEdit ? "Editar Indicador" : "Adicionar Novo Indicador";
   const buttonText = isEdit ? "Salvar" : "Adicionar";
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex h-full w-full items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm">
       <div
-        className={`relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden transition-all duration-300 ${
-          isAdvancedOpen ? "max-w-7xl" : "max-w-md"
+        className={`relative w-full overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300 ${
+          isAdvancedOpen ? "max-w-7xl" : "max-w-xl"
         }`}
       >
-        <div className="flex justify-between items-center p-4 border-b border-gray-100">
+        <div className="flex items-center justify-between border-b border-gray-100 p-4">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -78,14 +67,14 @@ export default function ServiceModal({
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 p-1 rounded-full hover:bg-gray-100 transition-colors"
+              className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-500"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="space-y-6 p-6">
           <div
             className={`grid gap-6 ${
               isAdvancedOpen ? "grid-cols-1 lg:grid-cols-4" : ""
@@ -95,8 +84,8 @@ export default function ServiceModal({
               className={`${isAdvancedOpen ? "lg:col-span-1" : ""} space-y-4`}
             >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome do Serviço
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Nome do Indicador
                 </label>
                 <input
                   type="text"
@@ -107,13 +96,36 @@ export default function ServiceModal({
                       srv_name: e.target.value,
                     })
                   }
-                  className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
                   placeholder="Insira um nome"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Endereço IP
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Categoria
+                </label>
+                <select
+                  value={service.srv_category}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    onServiceChange({
+                      ...service,
+                      srv_category: e.target.value as EditableIndicatorService["srv_category"],
+                    })
+                  }
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
+                >
+                  {indicatorCategories.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Endereco IP
                 </label>
                 <input
                   type="text"
@@ -124,13 +136,14 @@ export default function ServiceModal({
                       srv_ip: e.target.value,
                     })
                   }
-                  className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                  placeholder="Insira um endereço ip (ex. 192.168.1.100)"
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
+                  placeholder="Insira um endereco ip (ex. 192.168.1.100)"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descrição
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Descricao
                 </label>
                 <textarea
                   value={service.srv_desc}
@@ -141,19 +154,20 @@ export default function ServiceModal({
                     })
                   }
                   rows={3}
-                  className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow"
-                  placeholder="Insira uma descrição sobre o funcionamento do serviço"
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
+                  placeholder="Insira uma descricao sobre o funcionamento do indicador"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Imagem do Serviço
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Imagem do Indicador
                 </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-[#2e7675] transition-colors cursor-pointer relative">
+                <div className="relative mt-1 flex cursor-pointer justify-center rounded-lg border-2 border-dashed border-gray-300 px-6 pb-6 pt-5 transition-colors hover:border-[#2e7675]">
                   <input
                     type="file"
                     accept="image/*"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
@@ -166,23 +180,22 @@ export default function ServiceModal({
                       <img
                         src={previewImage}
                         alt="Preview"
-                        className="mx-auto h-32 object-cover rounded"
+                        className="mx-auto h-32 rounded object-cover"
                       />
                     ) : (
                       <div className="text-gray-500">
-                        <span className="text-[#2e7675] font-medium">
-                          Upload a file
+                        <span className="font-medium text-[#2e7675]">
+                          Enviar arquivo
                         </span>{" "}
-                        or drag and drop
+                        ou arrastar para ca
                       </div>
                     )}
                   </div>
                 </div>
               </div>
+
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">
-                  Enabled
-                </span>
+                <span className="text-sm font-medium text-gray-700">Ativo</span>
                 <button
                   type="button"
                   onClick={() =>
@@ -205,7 +218,7 @@ export default function ServiceModal({
             </div>
 
             {isAdvancedOpen && (
-              <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 lg:col-span-3 lg:grid-cols-2">
                 <div className="space-y-4">
                   <h4 className="text-sm font-semibold text-gray-900">
                     Frontend (NGINX)
@@ -219,7 +232,7 @@ export default function ServiceModal({
                       })
                     }
                     rows={15}
-                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow font-mono whitespace-pre"
+                    className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
                     placeholder="location / { ... }"
                   />
                   <div className="flex items-center gap-2">
@@ -234,7 +247,7 @@ export default function ServiceModal({
                       {service.rt_frontend_block?.includes(
                         `set $service_id ${service.srv_id};`,
                       )
-                        ? `ID do Serviço (${service.srv_id})`
+                        ? `ID do Indicador (${service.srv_id})`
                         : `Faltando linha: set $service_id ${service.srv_id};`}
                     </span>
                   </div>
@@ -250,7 +263,7 @@ export default function ServiceModal({
                       {service.rt_frontend_block?.includes(
                         "auth_request /_auth;",
                       )
-                        ? "Solicitação de Autenticação"
+                        ? "Solicitacao de autenticacao"
                         : "Faltando linha: auth_request /_auth;"}
                     </span>
                   </div>
@@ -283,12 +296,13 @@ export default function ServiceModal({
                         return service.rt_frontend_block?.includes(
                           `location ${path}`,
                         )
-                          ? "Localização do Frontend Correspondente"
+                          ? "Localizacao do frontend correspondente"
                           : `Faltando linha: location ${path}`;
                       })()}
                     </span>
                   </div>
                 </div>
+
                 <div className="space-y-4">
                   <h4 className="text-sm font-semibold text-gray-900">
                     Backend (NGINX)
@@ -302,7 +316,7 @@ export default function ServiceModal({
                       })
                     }
                     rows={15}
-                    className="block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:border-transparent sm:text-sm transition-shadow font-mono whitespace-pre"
+                    className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
                     placeholder="location /api { ... }"
                   />
                   <div className="flex items-center gap-2">
@@ -317,7 +331,7 @@ export default function ServiceModal({
                       {service.rt_backend_block?.includes(
                         `set $service_id ${service.srv_id};`,
                       )
-                        ? `ID do Serviço (${service.srv_id})`
+                        ? `ID do Indicador (${service.srv_id})`
                         : `Faltando linha: set $service_id ${service.srv_id};`}
                     </span>
                   </div>
@@ -333,7 +347,7 @@ export default function ServiceModal({
                       {service.rt_backend_block?.includes(
                         "auth_request /_auth;",
                       )
-                        ? "Solicitação de Autenticação"
+                        ? "Solicitacao de autenticacao"
                         : "Faltando linha: auth_request /_auth;"}
                     </span>
                   </div>
@@ -343,33 +357,33 @@ export default function ServiceModal({
           </div>
         </div>
 
-        <div className="px-6 pb-6 flex justify-between items-center">
+        <div className="flex items-center justify-between px-6 pb-6">
           {isEdit && onDelete && (
             <button
               onClick={onDelete}
-              className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+              className="inline-flex justify-center rounded-lg border border-transparent bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
             >
               {isRemoveLoading ? (
-                <LoaderCircle className="animate-spin w-5 h-5 text-white" />
+                <LoaderCircle className="h-5 w-5 animate-spin text-white" />
               ) : (
                 <p>Remover</p>
               )}
             </button>
           )}
 
-          <div className="flex gap-3 ml-auto">
+          <div className="ml-auto flex gap-3">
             <button
               onClick={onClose}
-              className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:ring-offset-2"
             >
               Cancelar
             </button>
             <button
               onClick={onSave}
-              className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-[#2e7675] hover:bg-[#256160] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2e7675] transition-colors"
+              className="inline-flex justify-center rounded-lg border border-transparent bg-[#2e7675] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#256160] focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:ring-offset-2"
             >
               {isLoading ? (
-                <LoaderCircle className="animate-spin w-5 h-5 text-white" />
+                <LoaderCircle className="h-5 w-5 animate-spin text-white" />
               ) : (
                 <p>{buttonText}</p>
               )}

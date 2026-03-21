@@ -530,7 +530,7 @@ class AdminListAllServicesView(APIView):
         conn = get_db_connection()
         cur = conn.cursor()
         try:
-            cur.execute("SELECT srv_id, srv_name, srv_desc FROM services_info ORDER BY srv_name")
+            cur.execute("SELECT srv_id, srv_name, srv_desc, srv_category FROM services_info ORDER BY srv_name")
             services_data = cur.fetchall()
             logger.debug(f"Retrieved {len(services_data)} services from database")
         except psycopg2.Error as e:
@@ -544,7 +544,8 @@ class AdminListAllServicesView(APIView):
                 {
                     "srv_id": row[0], 
                     "srv_name": row[1], 
-                    "srv_desc": row[2]
+                    "srv_desc": row[2],
+                    "srv_category": row[3],
                 } for row in services_data
             ]
         

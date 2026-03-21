@@ -3,6 +3,7 @@ create table services_info (
    srv_image bytea,
    srv_name  text not null,
    srv_ip    text not null,
+   srv_category text not null default 'cpoe',
    srv_desc  text
 );
 

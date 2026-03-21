@@ -1,6 +1,7 @@
 // api/axios.ts
 import axios from "axios";
 import { buildLoginRedirectPath } from "../utils/redirect";
+import type { IndicatorCategory } from "../constants/serviceCategories";
 
 // --- Types for User Management ---
 export interface User {
@@ -31,6 +32,7 @@ export interface AdminService {
   srv_id: number;
   srv_name: string;
   srv_desc?: string;
+  srv_category: IndicatorCategory;
 }
 
 //const API_BASE_URL = "http://192.168.1.64";

@@ -17,6 +17,25 @@ from utils.jwt import get_admin_user_from_token
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_SERVICE_CATEGORY = "cpoe"
+ALLOWED_SERVICE_CATEGORIES = {"cpoe", "adep", "farmacia"}
+
+
+def normalize_service_category(category: str | None) -> str:
+    normalized_category = (category or DEFAULT_SERVICE_CATEGORY).strip().lower()
+
+    if normalized_category not in ALLOWED_SERVICE_CATEGORIES:
+        raise ValidationError(
+            {
+                "detail": (
+                    "Categoria invalida. Valores permitidos: "
+                    "cpoe, adep, farmacia."
+                )
+            }
+        )
+
+    return normalized_category
+
 
 class ServicesManager(APIView):
     permission_classes = [IsAuthenticated]
@@ -32,7 +51,7 @@ class ServicesManager(APIView):
             result = cur.fetchone()
             user_services = result[0]
 
-            cur.execute(f"SELECT srv_id, srv_image, srv_name, srv_ip, srv_desc, rt_frontend_block, rt_backend_block, rt_enabled FROM services_info si WHERE si.srv_id IN ({user_services}) order by si.srv_id")
+            cur.execute(f"SELECT srv_id, srv_image, srv_name, srv_ip, srv_desc, srv_category, rt_frontend_block, rt_backend_block, rt_enabled FROM services_info si WHERE si.srv_id IN ({user_services}) order by si.srv_id")
             result = cur.fetchall()
             services_list = []
             for row in result:
@@ -42,9 +61,10 @@ class ServicesManager(APIView):
                     "srv_name": row[2],
                     "srv_ip": row[3],
                     "srv_desc": row[4],
-                    "rt_frontend_block": row[5],
-                    "rt_backend_block": row[6],
-                    "rt_enabled": row[7],
+                    "srv_category": normalize_service_category(row[5]),
+                    "rt_frontend_block": row[6],
+                    "rt_backend_block": row[7],
+                    "rt_enabled": row[8],
                 }
                 
                 services_list.append(service_data)
@@ -77,6 +97,7 @@ class ServicesManager(APIView):
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
         srv_desc = request.data.get('srv_desc')
+        srv_category = normalize_service_category(request.data.get('srv_category'))
         rt_frontend_block = request.data.get('rt_frontend_block', '')
         rt_backend_block = request.data.get('rt_backend_block', '')
         rt_enabled = request.data.get('rt_enabled', True)
@@ -93,12 +114,13 @@ class ServicesManager(APIView):
         file_bytes = uploaded_file.read()
         try:
             cur.execute(
-                "insert into services_info (srv_image, srv_name, srv_ip, srv_desc, rt_frontend_block, rt_backend_block, rt_enabled) values(%s,%s,%s,%s,%s,%s,%s) returning srv_id",
+                "insert into services_info (srv_image, srv_name, srv_ip, srv_desc, srv_category, rt_frontend_block, rt_backend_block, rt_enabled) values(%s,%s,%s,%s,%s,%s,%s,%s) returning srv_id",
                 (
                     psycopg2.Binary(file_bytes),
                     srv_name,
                     srv_ip,
                     srv_desc,
+                    srv_category,
                     rt_frontend_block,
                     rt_backend_block,
                     rt_enabled,
@@ -155,6 +177,7 @@ class ServicesManagerUpdate(APIView):
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
         srv_desc = request.data.get('srv_desc')
+        srv_category = request.data.get('srv_category')
         rt_frontend_block = request.data.get('rt_frontend_block')
         rt_backend_block = request.data.get('rt_backend_block')
         rt_enabled = request.data.get('rt_enabled')
@@ -188,6 +211,10 @@ class ServicesManagerUpdate(APIView):
         if srv_desc is not None:
             fields.append("srv_desc = %s")
             values.append(srv_desc)
+
+        if srv_category is not None:
+            fields.append("srv_category = %s")
+            values.append(normalize_service_category(srv_category))
 
         if rt_frontend_block is not None:
             fields.append("rt_frontend_block = %s")
