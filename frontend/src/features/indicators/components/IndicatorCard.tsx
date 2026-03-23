@@ -1,4 +1,4 @@
-import { ChevronRight, Edit, ExternalLink, Globe } from "lucide-react";
+import { Edit, ExternalLink, Globe } from "lucide-react";
 import type { IndicatorService } from "../types/indicatorService";
 
 interface IndicatorCardProps {
@@ -6,7 +6,10 @@ interface IndicatorCardProps {
   imageSrc: string | null;
   isAdmin: boolean;
   onOpen: (service: IndicatorService) => void;
-  onEdit: (event: React.MouseEvent<HTMLButtonElement>, service: IndicatorService) => void;
+  onEdit: (
+    event: React.MouseEvent<HTMLButtonElement>,
+    service: IndicatorService,
+  ) => void;
 }
 
 export function IndicatorCard({
@@ -34,17 +37,21 @@ export function IndicatorCard({
           </div>
         )}
 
-        <div className="absolute inset-0 bg-[#2e7675]/88 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <div className="flex h-full items-center justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/14 px-3 py-1.5 text-xs font-semibold text-white">
-              Abrir indicador
-              <ExternalLink className="h-4 w-4" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,16,22,0.14)_0%,rgba(8,16,22,0.28)_100%)]" />
+
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,16,22,0.08)_0%,rgba(8,16,22,0.42)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-[linear-gradient(0deg,rgba(7,15,21,0.60)_0%,rgba(7,15,21,0.30)_30%,transparent_100%)] px-3 py-2">
+          <div className="font-dashboard-mono flex min-w-0 items-center gap-1.5 text-[10px] font-semibold tracking-[0.04em] text-white">
+            <ExternalLink className="h-3 w-3 shrink-0" />
+            <span className="min-w-0 truncate" title={service.srv_ip}>
+              {service.srv_ip}
             </span>
           </div>
         </div>
 
         {!service.rt_enabled && (
-          <div className="absolute bottom-2.5 left-2.5 rounded-full bg-red-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
+          <div className="absolute left-2.5 top-2.5 z-10 rounded-full bg-red-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
             Indisponivel
           </div>
         )}
@@ -61,23 +68,13 @@ export function IndicatorCard({
       </div>
 
       <div className="flex flex-1 flex-col p-3">
-        <div className="flex items-start justify-between gap-2.5">
-          <h3 className="font-dashboard-display text-[13px] font-bold uppercase leading-[1.2] tracking-[0.05em] text-gray-900 transition-colors group-hover:text-[#2e7675]">
-            {service.srv_name}
-          </h3>
-          <ChevronRight className="mt-0.5 h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-1 group-hover:text-[#2e7675]" />
-        </div>
+        <h3 className="font-dashboard-display text-[13px] font-bold uppercase leading-[1.2] tracking-[0.05em] text-gray-900 transition-colors group-hover:text-[#2e7675]">
+          {service.srv_name}
+        </h3>
 
         <p className="mt-1 flex-1 text-[12px] leading-[1.35rem] text-gray-600">
           {service.srv_desc || "Sem descricao disponivel."}
         </p>
-
-        <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2">
-          <div className="font-dashboard-mono inline-flex items-center gap-1.5 rounded-full bg-[#2e7675]/8 px-2.5 py-1 text-[10px] font-medium text-[#2e7675]">
-            <Globe className="h-3 w-3" />
-            {service.srv_ip}
-          </div>
-        </div>
       </div>
     </article>
   );
