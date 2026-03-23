@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, LoaderCircle, CheckCircle, XCircle } from "lucide-react";
-import { indicatorCategories } from "../../../indicators/config/serviceCategories";
+import type { IndicatorCategoryOption } from "../../../indicators/config/serviceCategories";
 import type { EditableIndicatorService } from "../../../indicators/types/indicatorService";
 
 interface ServiceModalProps {
@@ -8,6 +8,7 @@ interface ServiceModalProps {
   isLoading: boolean;
   isRemoveLoading?: boolean;
   isEdit: boolean;
+  categories: IndicatorCategoryOption[];
   service: EditableIndicatorService;
   onServiceChange: (service: EditableIndicatorService) => void;
   onSave: () => Promise<void>;
@@ -22,6 +23,7 @@ export default function ServiceModal({
   isLoading,
   isRemoveLoading = false,
   isEdit,
+  categories,
   service,
   onServiceChange,
   onSave,
@@ -106,20 +108,25 @@ export default function ServiceModal({
                   Categoria
                 </label>
                 <select
-                  value={service.srv_category}
+                  value={categories.length > 0 ? String(service.srv_category) : ""}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                     onServiceChange({
                       ...service,
-                      srv_category: e.target.value as EditableIndicatorService["srv_category"],
+                      srv_category: Number(e.target.value),
                     })
                   }
+                  disabled={categories.length === 0}
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
                 >
-                  {indicatorCategories.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
-                    </option>
-                  ))}
+                  {categories.length === 0 ? (
+                    <option value="">Nenhuma categoria disponivel</option>
+                  ) : (
+                    categories.map((category) => (
+                      <option key={category.value} value={category.value}>
+                        {category.label}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

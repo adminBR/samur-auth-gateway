@@ -1,9 +1,12 @@
 export {
-  indicatorCategories,
-  indicatorCategoryLabels,
   normalizeIndicatorCategory,
+  toIndicatorCategoryOption,
 } from "./config/serviceCategories";
-export type { IndicatorCategory } from "./config/serviceCategories";
+export type {
+  IndicatorCategory,
+  IndicatorCategoryOption,
+  ServiceCategory,
+} from "./config/serviceCategories";
 export { buildDefaultIndicator, normalizeService } from "./lib/serviceHelpers";
 export type {
   EditableIndicatorService,

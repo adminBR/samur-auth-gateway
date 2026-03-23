@@ -3,7 +3,7 @@ import type { IndicatorCategoryGroup } from "../types";
 
 interface MobileCategoryTabsProps {
   categoryGroups: IndicatorCategoryGroup[];
-  activeCategory: IndicatorCategory;
+  activeCategory: IndicatorCategory | null;
   onSelectCategory: (category: IndicatorCategory) => void;
 }
 

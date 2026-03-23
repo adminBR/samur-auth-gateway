@@ -1,10 +1,22 @@
+create sequence services_tags_tag_id_seq;
+
+create table services_category (
+   tag_id    int4 default nextval('services_tags_tag_id_seq'::regclass) not null primary key,
+   tag_name  text not null
+);
+
+insert into services_category (tag_name) values
+   ('CPOE'),
+   ('ADEP'),
+   ('Farmacia');
+
 create table services_info (
-   srv_id    serial primary key,
-   srv_image bytea,
-   srv_name  text not null,
-   srv_ip    text not null,
-   srv_category text not null default 'cpoe',
-   srv_desc  text
+   srv_id       serial primary key,
+   srv_image    bytea,
+   srv_name     text not null,
+   srv_ip       text not null,
+   srv_category int4 not null default 1 references services_category(tag_id),
+   srv_desc     text
 );
 
 create table usr_info (

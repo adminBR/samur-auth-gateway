@@ -4,7 +4,6 @@ import type { IndicatorService } from "../indicators/types/indicatorService";
 export interface IndicatorCategoryGroup {
   value: IndicatorCategory;
   label: string;
-  description: string;
   count: number;
   services: IndicatorService[];
 }

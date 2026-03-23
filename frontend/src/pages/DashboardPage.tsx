@@ -4,20 +4,22 @@ import {
   addService,
   deleteService,
   getNginxConfig,
+  getServiceCategories,
   getServices,
   updateService,
 } from "../api/services";
 import { getMe, logoutUser } from "../api/axios";
 import {
-  indicatorCategories,
-  normalizeIndicatorCategory,
   buildDefaultIndicator,
   normalizeService,
   type IndicatorCategory,
+  type IndicatorCategoryOption,
   EditableIndicatorService,
   IndicatorService,
   IndicatorModuleSection,
   IndicatorsEmptyState,
+  toIndicatorCategoryOption,
+  type ServiceCategory,
 } from "../features/indicators";
 import {
   DashboardNavbar,
@@ -32,6 +34,7 @@ export default function DashboardPage() {
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRemoveLoading, setRemoveIsLoading] = useState<boolean>(false);
+  const [categories, setCategories] = useState<IndicatorCategoryOption[]>([]);
   const [services, setServices] = useState<IndicatorService[]>([]);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
@@ -46,21 +49,18 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [activeCategory, setActiveCategory] = useState<IndicatorCategory>("cpoe");
+  const [activeCategory, setActiveCategory] = useState<IndicatorCategory | null>(
+    null,
+  );
   const [isNavbarCondensed, setIsNavbarCondensed] = useState(false);
-  const sectionRefs = useRef<Record<IndicatorCategory, HTMLElement | null>>({
-    cpoe: null,
-    adep: null,
-    farmacia: null,
-  });
+  const sectionRefs = useRef<Record<number, HTMLElement | null>>({});
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
-  const categoryGroups: IndicatorCategoryGroup[] = indicatorCategories.map(
+  const categoryGroups: IndicatorCategoryGroup[] = categories.map(
     (category) => {
       const groupedServices = services.filter((service) => {
-        const sameCategory =
-          normalizeIndicatorCategory(service.srv_category) === category.value;
+        const sameCategory = service.srv_category === category.value;
 
         if (!sameCategory) {
           return false;
@@ -101,15 +101,34 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    if (categories.length === 0) {
+      setActiveCategory(null);
+      return;
+    }
+
+    setActiveCategory((prev) => {
+      if (prev !== null && categories.some((category) => category.value === prev)) {
+        return prev;
+      }
+
+      return categories[0].value;
+    });
+  }, [categories]);
+
+  useEffect(() => {
     let rafId = 0;
     let ticking = false;
+
+    if (categories.length === 0) {
+      return;
+    }
 
     const syncScrollState = () => {
       const currentScrollTop = Math.max(window.scrollY, 0);
       const scrollTop = currentScrollTop + 200;
-      let currentCategory: IndicatorCategory = "cpoe";
+      let currentCategory: IndicatorCategory | null = categories[0]?.value ?? null;
 
-      indicatorCategories.forEach((category) => {
+      categories.forEach((category) => {
         const section = sectionRefs.current[category.value];
 
         if (section) {
@@ -121,9 +140,11 @@ export default function DashboardPage() {
         }
       });
 
-      setActiveCategory((prev) =>
-        prev === currentCategory ? prev : currentCategory,
-      );
+      if (currentCategory !== null) {
+        setActiveCategory((prev) =>
+          prev === currentCategory ? prev : currentCategory,
+        );
+      }
       setIsNavbarCondensed((prev) => {
         if (currentScrollTop <= 8) {
           return prev ? false : prev;
@@ -154,13 +175,22 @@ export default function DashboardPage() {
       window.removeEventListener("scroll", handleScroll);
       window.cancelAnimationFrame(rafId);
     };
-  }, []);
+  }, [categories]);
+
+  const refreshCategories = async () => {
+    const request = await getServiceCategories();
+    setCategories(
+      (request.content as ServiceCategory[]).map(toIndicatorCategoryOption),
+    );
+  };
 
   const refreshServices = async () => {
     const request = await getServices();
     setServices(
       (request.content as Array<
-        Omit<IndicatorService, "srv_category"> & { srv_category?: string | null }
+        Omit<IndicatorService, "srv_category"> & {
+          srv_category?: number | string | null;
+        }
       >).map(normalizeService),
     );
   };
@@ -194,7 +224,9 @@ export default function DashboardPage() {
 
   const handleOpenAddModal = () => {
     setIsEditMode(false);
-    setCurrentService(buildDefaultIndicator(activeCategory));
+    setCurrentService(
+      buildDefaultIndicator(activeCategory ?? categories[0]?.value ?? 0),
+    );
     setPreviewImage(null);
     setSelectedFile(null);
     setModalOpen(true);
@@ -215,7 +247,7 @@ export default function DashboardPage() {
       formData.append("srv_name", currentService.srv_name);
       formData.append("srv_ip", currentService.srv_ip);
       formData.append("srv_desc", currentService.srv_desc);
-      formData.append("srv_category", currentService.srv_category);
+      formData.append("srv_category", String(currentService.srv_category));
       formData.append(
         "rt_frontend_block",
         currentService.rt_frontend_block ?? "",
@@ -261,7 +293,7 @@ export default function DashboardPage() {
       formData.append("srv_name", currentService.srv_name);
       formData.append("srv_ip", currentService.srv_ip);
       formData.append("srv_desc", currentService.srv_desc);
-      formData.append("srv_category", currentService.srv_category);
+      formData.append("srv_category", String(currentService.srv_category));
       formData.append(
         "rt_frontend_block",
         currentService.rt_frontend_block ?? "",
@@ -297,7 +329,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const populateServices = async (): Promise<void> => {
       try {
-        await refreshServices();
+        await Promise.all([refreshCategories(), refreshServices()]);
       } catch (err: unknown) {
         console.log("CallError", err);
       }
@@ -413,6 +445,7 @@ export default function DashboardPage() {
         isLoading={isLoading}
         isRemoveLoading={isRemoveLoading}
         isEdit={isEditMode}
+        categories={categories}
         service={currentService}
         onServiceChange={setCurrentService}
         onSave={isEditMode ? handleUpdateService : handleAddService}

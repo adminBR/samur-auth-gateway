@@ -1,7 +1,20 @@
 import api from "./axios";
+import type { ServiceCategory } from "../features/indicators";
+
+interface ApiListResponse<T> {
+  message: string;
+  content: T[];
+}
 
 export const getServices = async () => {
   const res = await api.get("api_gateway/v1/services/");
+  return res.data;
+};
+
+export const getServiceCategories = async (): Promise<
+  ApiListResponse<ServiceCategory>
+> => {
+  const res = await api.get("api_gateway/v1/services/categories/");
   return res.data;
 };
 

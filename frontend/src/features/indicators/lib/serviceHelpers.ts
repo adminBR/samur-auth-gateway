@@ -9,7 +9,7 @@ import type {
 
 export const normalizeService = (
   service: Omit<IndicatorService, "srv_category"> & {
-    srv_category?: string | null;
+    srv_category?: number | string | null;
   },
 ): IndicatorService => ({
   ...service,
@@ -18,7 +18,7 @@ export const normalizeService = (
 });
 
 export const buildDefaultIndicator = (
-  category: IndicatorCategory = "cpoe",
+  category: IndicatorCategory = 0,
 ): EditableIndicatorService => ({
   srv_image: "/api/placeholder/200/150",
   srv_name: "",

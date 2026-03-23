@@ -1,40 +1,129 @@
-from django.shortcuts import render
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError,APIException
-from rest_framework.request import Request
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser,FormParser # For file uploads
-
-import psycopg2
+import base64
 import logging
 import os
-import base64
+
+import psycopg2
+from rest_framework import status
+from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from utils.database import get_db_connection
 from utils.jwt import get_admin_user_from_token
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SERVICE_CATEGORY = "cpoe"
-ALLOWED_SERVICE_CATEGORIES = {"cpoe", "adep", "farmacia"}
+
+def fetch_service_categories(cur) -> list[dict[str, int | str]]:
+    cur.execute(
+        "SELECT tag_id, tag_name FROM services_category ORDER BY tag_id"
+    )
+    rows = cur.fetchall()
+    return [{"tag_id": row[0], "tag_name": row[1]} for row in rows]
 
 
-def normalize_service_category(category: str | None) -> str:
-    normalized_category = (category or DEFAULT_SERVICE_CATEGORY).strip().lower()
+def get_service_category_lookup(cur):
+    categories = fetch_service_categories(cur)
+    if not categories:
+        raise APIException({"detail": "No service categories configured."})
 
-    if normalized_category not in ALLOWED_SERVICE_CATEGORIES:
-        raise ValidationError(
-            {
-                "detail": (
-                    "Categoria invalida. Valores permitidos: "
-                    "cpoe, adep, farmacia."
-                )
-            }
+    categories_by_id = {int(category["tag_id"]): category for category in categories}
+    categories_by_name = {
+        str(category["tag_name"]).strip().lower(): category
+        for category in categories
+        if category["tag_name"]
+    }
+    default_category_id = int(categories[0]["tag_id"])
+
+    return categories, categories_by_id, categories_by_name, default_category_id
+
+
+def build_service_category_error(
+    categories: list[dict[str, int | str]],
+) -> dict[str, str]:
+    allowed_values = ", ".join(
+        f'{category["tag_id"]} ({category["tag_name"]})' for category in categories
+    )
+    return {
+        "detail": (
+            "Categoria invalida. Informe um ID existente de services_category. "
+            f"Valores permitidos: {allowed_values}."
         )
+    }
 
-    return normalized_category
+
+def normalize_service_category(
+    category: str | int | None,
+    categories: list[dict[str, int | str]],
+    categories_by_id: dict[int, dict[str, int | str]],
+    categories_by_name: dict[str, dict[str, int | str]],
+    default_category_id: int,
+    *,
+    fallback_to_default: bool = False,
+) -> int:
+    if category is None:
+        return default_category_id
+
+    category_text = str(category).strip()
+    if category_text == "":
+        return default_category_id
+
+    if isinstance(category, int):
+        category_id = category
+    elif category_text.isdigit():
+        category_id = int(category_text)
+    else:
+        matched_category = categories_by_name.get(category_text.lower())
+        if matched_category is not None:
+            return int(matched_category["tag_id"])
+
+        if fallback_to_default:
+            logger.warning(
+                "Unknown legacy service category '%s'. Falling back to category_id=%s.",
+                category,
+                default_category_id,
+            )
+            return default_category_id
+
+        raise ValidationError(build_service_category_error(categories))
+
+    if category_id in categories_by_id:
+        return category_id
+
+    if fallback_to_default:
+        logger.warning(
+            "Unknown service category id '%s'. Falling back to category_id=%s.",
+            category,
+            default_category_id,
+        )
+        return default_category_id
+
+    raise ValidationError(build_service_category_error(categories))
+
+
+class ServiceCategoriesManager(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request):
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            categories = fetch_service_categories(cur)
+            logger.info("Successfully retrieved %s service categories", len(categories))
+            return Response({"message": "success", "content": categories})
+        except Exception as e:
+            logger.error(
+                "Error fetching service categories: %s",
+                str(e),
+                exc_info=True,
+            )
+            raise
+        finally:
+            cur.close()
+            conn.close()
 
 
 class ServicesManager(APIView):
@@ -47,11 +136,43 @@ class ServicesManager(APIView):
         cur = conn.cursor()
         logger.info(f"Fetching services for user_id: {user_id}")
         try:
-            cur.execute("SELECT usr_access FROM usr_info ui WHERE ui.usr_id = %s", (user_id,))
-            result = cur.fetchone()
-            user_services = result[0]
+            categories, categories_by_id, categories_by_name, default_category_id = (
+                get_service_category_lookup(cur)
+            )
 
-            cur.execute(f"SELECT srv_id, srv_image, srv_name, srv_ip, srv_desc, srv_category, rt_frontend_block, rt_backend_block, rt_enabled FROM services_info si WHERE si.srv_id IN ({user_services}) order by si.srv_id")
+            cur.execute(
+                "SELECT usr_access FROM usr_info ui WHERE ui.usr_id = %s",
+                (user_id,),
+            )
+            result = cur.fetchone()
+            user_services = [
+                int(service_id.strip())
+                for service_id in str(result[0] or "").split(",")
+                if service_id.strip().isdigit()
+            ]
+
+            if not user_services:
+                logger.info("No services configured for user_id: %s", user_id)
+                return Response({"message": "success", "content": []})
+
+            cur.execute(
+                """
+                SELECT
+                    srv_id,
+                    srv_image,
+                    srv_name,
+                    srv_ip,
+                    srv_desc,
+                    srv_category,
+                    rt_frontend_block,
+                    rt_backend_block,
+                    rt_enabled
+                FROM services_info si
+                WHERE si.srv_id = ANY(%s)
+                ORDER BY si.srv_id
+                """,
+                (user_services,),
+            )
             result = cur.fetchall()
             services_list = []
             for row in result:
@@ -61,7 +182,14 @@ class ServicesManager(APIView):
                     "srv_name": row[2],
                     "srv_ip": row[3],
                     "srv_desc": row[4],
-                    "srv_category": normalize_service_category(row[5]),
+                    "srv_category": normalize_service_category(
+                        row[5],
+                        categories,
+                        categories_by_id,
+                        categories_by_name,
+                        default_category_id,
+                        fallback_to_default=True,
+                    ),
                     "rt_frontend_block": row[6],
                     "rt_backend_block": row[7],
                     "rt_enabled": row[8],
@@ -97,12 +225,21 @@ class ServicesManager(APIView):
         srv_name = request.data.get('srv_name')
         srv_ip = request.data.get('srv_ip')
         srv_desc = request.data.get('srv_desc')
-        srv_category = normalize_service_category(request.data.get('srv_category'))
         rt_frontend_block = request.data.get('rt_frontend_block', '')
         rt_backend_block = request.data.get('rt_backend_block', '')
         rt_enabled = request.data.get('rt_enabled', True)
         srv_image_file = request.FILES.get('srv_image')
 
+        categories, categories_by_id, categories_by_name, default_category_id = (
+            get_service_category_lookup(cur)
+        )
+        srv_category = normalize_service_category(
+            request.data.get('srv_category'),
+            categories,
+            categories_by_id,
+            categories_by_name,
+            default_category_id,
+        )
 
         uploaded_file = srv_image_file
         allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif']
@@ -183,6 +320,15 @@ class ServicesManagerUpdate(APIView):
         rt_enabled = request.data.get('rt_enabled')
         srv_image_file = request.FILES.get('srv_image')
 
+        categories = []
+        categories_by_id = {}
+        categories_by_name = {}
+        default_category_id = 0
+        if srv_category is not None:
+            categories, categories_by_id, categories_by_name, default_category_id = (
+                get_service_category_lookup(cur)
+            )
+
         query = "UPDATE services_info SET "
         fields = []
         values = []
@@ -214,7 +360,15 @@ class ServicesManagerUpdate(APIView):
 
         if srv_category is not None:
             fields.append("srv_category = %s")
-            values.append(normalize_service_category(srv_category))
+            values.append(
+                normalize_service_category(
+                    srv_category,
+                    categories,
+                    categories_by_id,
+                    categories_by_name,
+                    default_category_id,
+                )
+            )
 
         if rt_frontend_block is not None:
             fields.append("rt_frontend_block = %s")
