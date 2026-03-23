@@ -1,10 +1,10 @@
-import type { IndicatorCategory } from "../config/serviceCategories";
+import type { DashboardSectionId } from "../../dashboard/types";
 import type { IndicatorService } from "../types/indicatorService";
 import { IndicatorCard } from "./IndicatorCard";
 
 interface IndicatorModuleSectionProps {
   category: {
-    value: IndicatorCategory;
+    value: DashboardSectionId;
     label: string;
   };
   count: number;
@@ -14,6 +14,8 @@ interface IndicatorModuleSectionProps {
   sectionRef: (node: HTMLElement | null) => void;
   getServiceImageSrc: (service: IndicatorService) => string | null;
   onOpenIndicator: (service: IndicatorService) => void;
+  onToggleFavorite: (service: IndicatorService) => void;
+  favoriteLoadingId: number | null;
   onEditIndicator: (
     event: React.MouseEvent<HTMLButtonElement>,
     service: IndicatorService,
@@ -29,6 +31,8 @@ export function IndicatorModuleSection({
   sectionRef,
   getServiceImageSrc,
   onOpenIndicator,
+  onToggleFavorite,
+  favoriteLoadingId,
   onEditIndicator,
 }: IndicatorModuleSectionProps) {
   return (
@@ -60,6 +64,8 @@ export function IndicatorModuleSection({
               imageSrc={getServiceImageSrc(service)}
               isAdmin={isAdmin}
               onOpen={onOpenIndicator}
+              onToggleFavorite={onToggleFavorite}
+              isFavoriteLoading={favoriteLoadingId === service.srv_id}
               onEdit={onEditIndicator}
             />
           ))}

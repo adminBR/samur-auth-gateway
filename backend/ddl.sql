@@ -27,3 +27,10 @@ create table usr_info (
    usr_admin    boolean default false,
    created_at   timestamptz default current_timestamp
 );
+
+create table usr_favorite_services (
+   usr_id     int4 not null references usr_info(usr_id) on delete cascade,
+   srv_id     int4 not null references services_info(srv_id) on delete cascade,
+   created_at timestamptz not null default current_timestamp,
+   primary key (usr_id, srv_id)
+);

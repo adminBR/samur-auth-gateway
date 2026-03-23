@@ -1,10 +1,9 @@
-import { type IndicatorCategory } from "../../indicators/config/serviceCategories";
-import type { IndicatorCategoryGroup } from "../types";
+import type { DashboardSectionId, IndicatorCategoryGroup } from "../types";
 
 interface MobileCategoryTabsProps {
   categoryGroups: IndicatorCategoryGroup[];
-  activeCategory: IndicatorCategory | null;
-  onSelectCategory: (category: IndicatorCategory) => void;
+  activeCategory: DashboardSectionId | null;
+  onSelectCategory: (category: DashboardSectionId) => void;
 }
 
 export function MobileCategoryTabs({

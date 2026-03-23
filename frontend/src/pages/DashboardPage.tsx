@@ -2,17 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   addService,
+  addServiceFavorite,
   deleteService,
   getNginxConfig,
   getServiceCategories,
   getServices,
+  removeServiceFavorite,
   updateService,
 } from "../api/services";
 import { getMe, logoutUser } from "../api/axios";
 import {
   buildDefaultIndicator,
   normalizeService,
-  type IndicatorCategory,
   type IndicatorCategoryOption,
   EditableIndicatorService,
   IndicatorService,
@@ -24,7 +25,9 @@ import {
 import {
   DashboardNavbar,
   DashboardSidebar,
+  FAVORITES_SECTION_ID,
   MobileCategoryTabs,
+  type DashboardSectionId,
   type IndicatorCategoryGroup,
 } from "../features/dashboard";
 import { NginxConfigModal, ServiceModal, UserManager } from "../features/admin";
@@ -49,32 +52,46 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [activeCategory, setActiveCategory] = useState<IndicatorCategory | null>(
+  const [activeCategory, setActiveCategory] = useState<DashboardSectionId | null>(
     null,
   );
+  const [favoriteLoadingId, setFavoriteLoadingId] = useState<number | null>(null);
   const [isNavbarCondensed, setIsNavbarCondensed] = useState(false);
-  const sectionRefs = useRef<Record<number, HTMLElement | null>>({});
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
+  const filteredServices = services.filter((service) => {
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    return (
+      service.srv_name.toLowerCase().includes(normalizedSearch) ||
+      service.srv_ip.toLowerCase().includes(normalizedSearch) ||
+      service.srv_desc.toLowerCase().includes(normalizedSearch)
+    );
+  });
+
+  const favoriteServices = filteredServices.filter((service) => service.is_favorite);
+
+  const favoriteGroup: IndicatorCategoryGroup = {
+    value: FAVORITES_SECTION_ID,
+    label: "Favoritos",
+    count: favoriteServices.length,
+    services: favoriteServices,
+  };
+
   const categoryGroups: IndicatorCategoryGroup[] = categories.map(
     (category) => {
-      const groupedServices = services.filter((service) => {
+      const groupedServices = filteredServices.filter((service) => {
         const sameCategory = service.srv_category === category.value;
 
         if (!sameCategory) {
           return false;
         }
 
-        if (!normalizedSearch) {
-          return true;
-        }
-
-        return (
-          service.srv_name.toLowerCase().includes(normalizedSearch) ||
-          service.srv_ip.toLowerCase().includes(normalizedSearch) ||
-          service.srv_desc.toLowerCase().includes(normalizedSearch)
-        );
+        return true;
       });
 
       return {
@@ -85,14 +102,18 @@ export default function DashboardPage() {
     },
   );
 
-  const totalVisibleIndicators = categoryGroups.reduce(
-    (total, category) => total + category.services.length,
-    0,
-  );
+  const dashboardGroups: IndicatorCategoryGroup[] = [
+    favoriteGroup,
+    ...categoryGroups,
+  ];
 
-  const scrollToCategory = (category: IndicatorCategory) => {
+  const hasVisibleIndicators = filteredServices.length > 0;
+
+  const getSectionKey = (category: DashboardSectionId) => String(category);
+
+  const scrollToCategory = (category: DashboardSectionId) => {
     setActiveCategory(category);
-    const section = sectionRefs.current[category];
+    const section = sectionRefs.current[getSectionKey(category)];
 
     if (section) {
       const top = section.getBoundingClientRect().top + window.scrollY - 108;
@@ -101,35 +122,34 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (categories.length === 0) {
-      setActiveCategory(null);
-      return;
-    }
-
     setActiveCategory((prev) => {
-      if (prev !== null && categories.some((category) => category.value === prev)) {
+      if (
+        prev !== null &&
+        dashboardGroups.some((category) => category.value === prev)
+      ) {
         return prev;
       }
 
-      return categories[0].value;
+      return FAVORITES_SECTION_ID;
     });
-  }, [categories]);
+  }, [dashboardGroups]);
 
   useEffect(() => {
     let rafId = 0;
     let ticking = false;
 
-    if (categories.length === 0) {
+    if (dashboardGroups.length === 0) {
       return;
     }
 
     const syncScrollState = () => {
       const currentScrollTop = Math.max(window.scrollY, 0);
       const scrollTop = currentScrollTop + 200;
-      let currentCategory: IndicatorCategory | null = categories[0]?.value ?? null;
+      let currentCategory: DashboardSectionId | null =
+        dashboardGroups[0]?.value ?? null;
 
-      categories.forEach((category) => {
-        const section = sectionRefs.current[category.value];
+      dashboardGroups.forEach((category) => {
+        const section = sectionRefs.current[getSectionKey(category.value)];
 
         if (section) {
           const sectionTop = section.getBoundingClientRect().top + window.scrollY;
@@ -175,7 +195,7 @@ export default function DashboardPage() {
       window.removeEventListener("scroll", handleScroll);
       window.cancelAnimationFrame(rafId);
     };
-  }, [categories]);
+  }, [dashboardGroups]);
 
   const refreshCategories = async () => {
     const request = await getServiceCategories();
@@ -224,12 +244,41 @@ export default function DashboardPage() {
 
   const handleOpenAddModal = () => {
     setIsEditMode(false);
-    setCurrentService(
-      buildDefaultIndicator(activeCategory ?? categories[0]?.value ?? 0),
-    );
+    const nextCategory =
+      typeof activeCategory === "number"
+        ? activeCategory
+        : (categories[0]?.value ?? 0);
+    setCurrentService(buildDefaultIndicator(nextCategory));
     setPreviewImage(null);
     setSelectedFile(null);
     setModalOpen(true);
+  };
+
+  const handleToggleFavorite = async (service: IndicatorService) => {
+    try {
+      setFavoriteLoadingId(service.srv_id);
+
+      if (service.is_favorite) {
+        await removeServiceFavorite(service.srv_id);
+      } else {
+        await addServiceFavorite(service.srv_id);
+      }
+
+      setServices((prevServices) =>
+        prevServices.map((currentService) =>
+          currentService.srv_id === service.srv_id
+            ? {
+                ...currentService,
+                is_favorite: !service.is_favorite,
+              }
+            : currentService,
+        ),
+      );
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+    } finally {
+      setFavoriteLoadingId(null);
+    }
   };
 
   const handleCloseModal = () => {
@@ -399,23 +448,23 @@ export default function DashboardPage() {
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-[1640px] items-start gap-3 px-2 pb-8 pt-1 sm:px-3 lg:gap-4 lg:px-4">
         <DashboardSidebar
-          categoryGroups={categoryGroups}
+          categoryGroups={dashboardGroups}
           activeCategory={activeCategory}
           onSelectCategory={scrollToCategory}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <MobileCategoryTabs
-            categoryGroups={categoryGroups}
+            categoryGroups={dashboardGroups}
             activeCategory={activeCategory}
             onSelectCategory={scrollToCategory}
           />
 
           <main className="-mt-4 flex-1 pt-10 sm:-mt-5 sm:pt-12">
             <div className="min-h-[260px]">
-              {totalVisibleIndicators > 0 ? (
+              {hasVisibleIndicators ? (
                 <div className="space-y-5">
-                  {categoryGroups.map((category) => (
+                  {dashboardGroups.map((category) => (
                     <IndicatorModuleSection
                       key={category.value}
                       category={category}
@@ -424,10 +473,12 @@ export default function DashboardPage() {
                       isAdmin={isAdmin}
                       isActive={category.value === activeCategory}
                       sectionRef={(node) => {
-                        sectionRefs.current[category.value] = node;
+                        sectionRefs.current[getSectionKey(category.value)] = node;
                       }}
                       getServiceImageSrc={getServiceImageSrc}
                       onOpenIndicator={handleIndicatorClick}
+                      onToggleFavorite={handleToggleFavorite}
+                      favoriteLoadingId={favoriteLoadingId}
                       onEditIndicator={handleEditClick}
                     />
                   ))}

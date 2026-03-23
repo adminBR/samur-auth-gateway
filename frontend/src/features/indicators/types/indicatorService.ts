@@ -7,6 +7,7 @@ export interface IndicatorService {
   srv_ip: string;
   srv_desc: string;
   srv_category: IndicatorCategory;
+  is_favorite?: boolean;
   rt_frontend_block?: string;
   rt_backend_block?: string;
   rt_enabled?: boolean;

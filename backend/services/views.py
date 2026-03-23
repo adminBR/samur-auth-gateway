@@ -15,6 +15,7 @@ from utils.database import get_db_connection
 from utils.jwt import get_admin_user_from_token
 
 logger = logging.getLogger(__name__)
+SERVICE_FAVORITES_TABLE = "usr_favorite_services"
 
 
 def fetch_service_categories(cur) -> list[dict[str, int | str]]:
@@ -104,6 +105,48 @@ def normalize_service_category(
     raise ValidationError(build_service_category_error(categories))
 
 
+def parse_service_ids(raw_service_ids) -> list[int]:
+    return [
+        int(service_id.strip())
+        for service_id in str(raw_service_ids or "").split(",")
+        if service_id.strip().isdigit()
+    ]
+
+
+def fetch_user_accessible_service_ids(cur, user_id: int) -> list[int]:
+    cur.execute("SELECT usr_access FROM usr_info WHERE usr_id = %s", (user_id,))
+    result = cur.fetchone()
+    if result is None:
+        raise ValidationError({"detail": "User not found."})
+
+    return parse_service_ids(result[0])
+
+
+def fetch_user_favorite_service_ids(
+    cur,
+    user_id: int,
+    service_ids: list[int],
+) -> set[int]:
+    if not service_ids:
+        return set()
+
+    cur.execute(
+        f"""
+        SELECT srv_id
+        FROM {SERVICE_FAVORITES_TABLE}
+        WHERE usr_id = %s
+          AND srv_id = ANY(%s)
+        """,
+        (user_id, service_ids),
+    )
+    return {int(row[0]) for row in cur.fetchall()}
+
+
+def service_exists(cur, service_id: int) -> bool:
+    cur.execute("SELECT 1 FROM services_info WHERE srv_id = %s", (service_id,))
+    return cur.fetchone() is not None
+
+
 class ServiceCategoriesManager(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -126,6 +169,97 @@ class ServiceCategoriesManager(APIView):
             conn.close()
 
 
+class ServiceFavoriteManager(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, service_id: int):
+        user_id = request.user.id
+        conn = get_db_connection()
+        cur = conn.cursor()
+        conn.autocommit = False
+        logger.info(
+            "Adding service_id=%s to favorites for user_id=%s",
+            service_id,
+            user_id,
+        )
+
+        try:
+            if not service_exists(cur, service_id):
+                return Response(
+                    {"detail": "Service not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            allowed_service_ids = fetch_user_accessible_service_ids(cur, user_id)
+            if service_id not in allowed_service_ids:
+                return Response(
+                    {"detail": "Access denied to this service."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            cur.execute(
+                f"""
+                INSERT INTO {SERVICE_FAVORITES_TABLE} (usr_id, srv_id)
+                VALUES (%s, %s)
+                ON CONFLICT (usr_id, srv_id) DO NOTHING
+                """,
+                (user_id, service_id),
+            )
+            conn.commit()
+            return Response(
+                {"message": "Success", "service_id": service_id, "favorite": True}
+            )
+        except Exception:
+            conn.rollback()
+            logger.error(
+                "Error adding favorite service_id=%s for user_id=%s",
+                service_id,
+                user_id,
+                exc_info=True,
+            )
+            raise
+        finally:
+            cur.close()
+            conn.close()
+
+    def delete(self, request: Request, service_id: int):
+        user_id = request.user.id
+        conn = get_db_connection()
+        cur = conn.cursor()
+        conn.autocommit = False
+        logger.info(
+            "Removing service_id=%s from favorites for user_id=%s",
+            service_id,
+            user_id,
+        )
+
+        try:
+            cur.execute(
+                f"""
+                DELETE FROM {SERVICE_FAVORITES_TABLE}
+                WHERE usr_id = %s
+                  AND srv_id = %s
+                """,
+                (user_id, service_id),
+            )
+            conn.commit()
+            return Response(
+                {"message": "Success", "service_id": service_id, "favorite": False}
+            )
+        except Exception:
+            conn.rollback()
+            logger.error(
+                "Error removing favorite service_id=%s for user_id=%s",
+                service_id,
+                user_id,
+                exc_info=True,
+            )
+            raise
+        finally:
+            cur.close()
+            conn.close()
+
+
 class ServicesManager(APIView):
     permission_classes = [IsAuthenticated]
     
@@ -139,17 +273,12 @@ class ServicesManager(APIView):
             categories, categories_by_id, categories_by_name, default_category_id = (
                 get_service_category_lookup(cur)
             )
-
-            cur.execute(
-                "SELECT usr_access FROM usr_info ui WHERE ui.usr_id = %s",
-                (user_id,),
+            user_services = fetch_user_accessible_service_ids(cur, user_id)
+            favorite_service_ids = fetch_user_favorite_service_ids(
+                cur,
+                user_id,
+                user_services,
             )
-            result = cur.fetchone()
-            user_services = [
-                int(service_id.strip())
-                for service_id in str(result[0] or "").split(",")
-                if service_id.strip().isdigit()
-            ]
 
             if not user_services:
                 logger.info("No services configured for user_id: %s", user_id)
@@ -193,6 +322,7 @@ class ServicesManager(APIView):
                     "rt_frontend_block": row[6],
                     "rt_backend_block": row[7],
                     "rt_enabled": row[8],
+                    "is_favorite": row[0] in favorite_service_ids,
                 }
                 
                 services_list.append(service_data)

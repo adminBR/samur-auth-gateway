@@ -14,6 +14,7 @@ export const normalizeService = (
 ): IndicatorService => ({
   ...service,
   srv_category: normalizeIndicatorCategory(service.srv_category),
+  is_favorite: Boolean(service.is_favorite),
   rt_enabled: service.rt_enabled ?? true,
 });
 

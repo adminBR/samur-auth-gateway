@@ -1,4 +1,4 @@
-import { Edit, ExternalLink, Globe } from "lucide-react";
+import { Edit, ExternalLink, Globe, LoaderCircle, Star } from "lucide-react";
 import type { IndicatorService } from "../types/indicatorService";
 
 interface IndicatorCardProps {
@@ -6,6 +6,8 @@ interface IndicatorCardProps {
   imageSrc: string | null;
   isAdmin: boolean;
   onOpen: (service: IndicatorService) => void;
+  onToggleFavorite: (service: IndicatorService) => void;
+  isFavoriteLoading: boolean;
   onEdit: (
     event: React.MouseEvent<HTMLButtonElement>,
     service: IndicatorService,
@@ -17,6 +19,8 @@ export function IndicatorCard({
   imageSrc,
   isAdmin,
   onOpen,
+  onToggleFavorite,
+  isFavoriteLoading,
   onEdit,
 }: IndicatorCardProps) {
   return (
@@ -41,6 +45,14 @@ export function IndicatorCard({
 
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(8,16,22,0.08)_0%,rgba(8,16,22,0.42)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
+        <div className="absolute left-2.5 top-2.5 z-10 flex flex-col gap-1.5">
+          {!service.rt_enabled && (
+            <div className="rounded-full bg-red-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
+              Indisponivel
+            </div>
+          )}
+        </div>
+
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-[linear-gradient(0deg,rgba(7,15,21,0.60)_0%,rgba(7,15,21,0.30)_30%,transparent_100%)] px-3 py-2">
           <div className="font-dashboard-mono flex min-w-0 items-center gap-1.5 text-[10px] font-semibold tracking-[0.04em] text-white">
             <ExternalLink className="h-3 w-3 shrink-0" />
@@ -50,21 +62,43 @@ export function IndicatorCard({
           </div>
         </div>
 
-        {!service.rt_enabled && (
-          <div className="absolute left-2.5 top-2.5 z-10 rounded-full bg-red-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
-            Indisponivel
-          </div>
-        )}
-
-        {isAdmin && (
+        <div className="absolute right-2.5 top-2.5 z-10 flex items-center gap-2">
           <button
-            onClick={(event) => onEdit(event, service)}
-            className="absolute right-2.5 top-2.5 z-10 rounded-full bg-white p-1.5 text-gray-600 shadow-sm transition-colors hover:text-[#2e7675]"
-            title="Editar indicador"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleFavorite(service);
+            }}
+            className={`rounded-full p-1.5 shadow-sm transition-colors ${
+              service.is_favorite
+                ? "bg-amber-400 text-[#352100] hover:bg-amber-300"
+                : "bg-white text-gray-600 hover:text-amber-500"
+            }`}
+            title={
+              service.is_favorite
+                ? "Remover dos favoritos"
+                : "Adicionar aos favoritos"
+            }
+            disabled={isFavoriteLoading}
           >
-            <Edit className="h-3.5 w-3.5" />
+            {isFavoriteLoading ? (
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Star
+                className={`h-3.5 w-3.5 ${service.is_favorite ? "fill-current" : ""}`}
+              />
+            )}
           </button>
-        )}
+
+          {isAdmin && (
+            <button
+              onClick={(event) => onEdit(event, service)}
+              className="rounded-full bg-white p-1.5 text-gray-600 shadow-sm transition-colors hover:text-[#2e7675]"
+              title="Editar indicador"
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col p-3">

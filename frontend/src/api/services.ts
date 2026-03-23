@@ -37,6 +37,16 @@ export const deleteService = async (id: number) => {
   return res.data;
 };
 
+export const addServiceFavorite = async (id: number) => {
+  const res = await api.post(`api_gateway/v1/services/${id}/favorite`);
+  return res.data;
+};
+
+export const removeServiceFavorite = async (id: number) => {
+  const res = await api.delete(`api_gateway/v1/services/${id}/favorite`);
+  return res.data;
+};
+
 export const getNginxConfig = async () => {
   const res = await api.get("api_gateway/v1/nginx/config/");
   return res.data;
