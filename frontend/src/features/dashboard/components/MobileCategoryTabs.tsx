@@ -21,7 +21,7 @@ export function MobileCategoryTabs({
           <button
             key={category.value}
             onClick={() => onSelectCategory(category.value)}
-            className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-all duration-300 ${
+            className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-all duration-300 ${
               isActive
                 ? "border-[#2e7675]/20 bg-white text-[#2e7675] shadow-[0_14px_24px_rgba(46,118,117,0.14)]"
                 : "border-[#dce8e3] bg-white text-gray-700"

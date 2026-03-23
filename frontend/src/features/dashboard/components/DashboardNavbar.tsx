@@ -54,8 +54,8 @@ export function DashboardNavbar({
     <nav
       className={`relative z-[60] flex items-center rounded-[24px] border px-2.5 transition-[min-height,padding,background-color,border-color,box-shadow] duration-300 ease-out sm:px-3 ${
         isCondensed
-          ? "min-h-[44px] border-[#d8e5e0] bg-[#f8fcfa] py-0.5 shadow-[0_6px_14px_rgba(15,23,42,0.06)]"
-          : "min-h-[76px] border-transparent bg-transparent py-2.5 shadow-none"
+          ? "min-h-[44px] border-[#d8e5e0] bg-[#f8fcfa] py-0.5 "
+          : "min-h-[76px] border-transparent bg-transparent py-2.5 "
       }`}
     >
       <div
@@ -66,12 +66,12 @@ export function DashboardNavbar({
         <div
           className={`flex min-h-[58px] items-center gap-3 rounded-[20px] border px-3 py-2.5 transition-[min-height,padding,background-color,border-color,box-shadow] duration-300 ${
             isCondensed
-              ? "min-h-[34px] border-transparent bg-transparent px-2 py-1 shadow-none"
-              : "border-[#d8e5e0] bg-white shadow-[0_8px_18px_rgba(15,23,42,0.045)]"
+              ? "min-h-[34px] border-transparent bg-transparent px-2 py-1 "
+              : "border-[#d8e5e0] bg-white"
           }`}
         >
           <div
-            className={`flex items-center justify-center rounded-2xl border border-[#dce8e3] bg-[#f6fbf8] shadow-[0_6px_14px_rgba(46,118,117,0.06)] transition-[width,height] duration-300 ${
+            className={`flex items-center justify-center rounded-2xl border border-[#dce8e3] bg-[#f6fbf8] transition-[width,height] duration-300 ${
               isCondensed ? "h-8 w-8" : "h-12 w-12"
             }`}
           >
@@ -85,15 +85,17 @@ export function DashboardNavbar({
           </div>
           <div className="min-w-0">
             <p
-              className={`font-semibold uppercase tracking-[0.2em] text-[#2e7675] ${
+              className={`dashboard-label text-[#2e7675] ${
                 isCondensed ? "text-[8px]" : "text-[10px]"
               }`}
             >
-              Portal Interno
+              Hospital Samur
             </p>
             <p
-              className={`truncate font-black text-[#214f4e] ${
-                isCondensed ? "text-sm leading-none" : "text-base"
+              className={`font-dashboard-display truncate tracking-[0.01em] text-[#214f4e] ${
+                isCondensed
+                  ? "text-sm font-bold leading-none"
+                  : "text-[1.10rem] font-bold"
               }`}
             >
               Indicadores
@@ -104,8 +106,8 @@ export function DashboardNavbar({
         <div
           className={`flex min-h-[58px] items-center gap-2.5 rounded-[20px] border px-2.5 py-2.5 transition-[min-height,padding,background-color,border-color,box-shadow] duration-300 ${
             isCondensed
-              ? "min-h-[34px] border-transparent bg-transparent py-1 shadow-none"
-              : "border-[#d8e5e0] bg-white shadow-[0_8px_18px_rgba(15,23,42,0.045)]"
+              ? "min-h-[34px] border-transparent bg-transparent py-1"
+              : "border-[#d8e5e0] bg-white "
           }`}
         >
           <div className="relative w-full">
@@ -115,7 +117,7 @@ export function DashboardNavbar({
             <input
               type="text"
               placeholder="Pesquisar indicadores..."
-              className={`block w-full rounded-[16px] border border-[#dbe7e2] bg-[#fbfdfc] pl-11 pr-4 text-sm text-gray-900 outline-none transition-[border-color,background-color,box-shadow] duration-300 focus:border-[#2e7675]/30 focus:bg-white focus:ring-4 focus:ring-[#2e7675]/10 ${
+              className={`block w-full rounded-[16px] border border-[#dbe7e2] bg-[#fbfdfc] pl-11 pr-4 text-[13px] font-medium text-gray-900 outline-none transition-[border-color,background-color,box-shadow] duration-300 placeholder:text-gray-400 focus:border-[#2e7675]/30 focus:bg-white focus:ring-4 focus:ring-[#2e7675]/10 ${
                 isCondensed ? "h-8" : "h-10"
               }`}
               value={searchTerm}
@@ -128,8 +130,8 @@ export function DashboardNavbar({
               onClick={() => setUserMenuOpen((prev) => !prev)}
               className={`inline-flex shrink-0 items-center border border-[#dbe7e2] text-left transition-[width,padding,border-color,background-color,box-shadow] duration-300 hover:border-[#2e7675]/20 hover:bg-white ${
                 isCondensed
-                  ? "h-8 w-8 justify-center rounded-[14px] bg-white px-0 shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
-                  : "h-10 gap-3 rounded-[16px] bg-[#fbfdfc] px-3 shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
+                  ? "h-8 w-8 justify-center rounded-[14px] bg-white px-0 "
+                  : "h-10 gap-3 rounded-[16px] bg-[#fbfdfc] px-3"
               }`}
               title="Minha conta"
             >
@@ -147,10 +149,10 @@ export function DashboardNavbar({
                     : "hidden max-w-[180px] opacity-100 sm:block"
                 }`}
               >
-                <p className="max-w-[150px] truncate text-sm font-semibold text-gray-900">
+                <p className="max-w-[150px] truncate text-[13px] font-semibold text-gray-900">
                   {userName || "Usuario"}
                 </p>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-gray-500">
                   {isAdmin ? "Administrador" : "Acesso padrao"}
                 </p>
               </div>
@@ -171,7 +173,7 @@ export function DashboardNavbar({
                       <UserCircle className="h-6 w-6" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-gray-900">
+                      <p className="truncate text-[13px] font-semibold text-gray-900">
                         {userName || "Usuario"}
                       </p>
                       <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#2e7675]/8 px-2 py-1 text-[11px] font-medium text-[#2e7675]">
@@ -190,7 +192,7 @@ export function DashboardNavbar({
                           setUserMenuOpen(false);
                           onAddService();
                         }}
-                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-[#2e7675]/6 hover:text-[#2e7675]"
+                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-[13px] font-medium text-gray-700 transition-colors hover:bg-[#2e7675]/6 hover:text-[#2e7675]"
                       >
                         {isAddLoading ? (
                           <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -204,7 +206,7 @@ export function DashboardNavbar({
                           setUserMenuOpen(false);
                           onManageUsers();
                         }}
-                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-[#2e7675]/6 hover:text-[#2e7675]"
+                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-[13px] font-medium text-gray-700 transition-colors hover:bg-[#2e7675]/6 hover:text-[#2e7675]"
                       >
                         <Users className="h-4 w-4" />
                         Gerenciar usuarios
@@ -214,7 +216,7 @@ export function DashboardNavbar({
                           setUserMenuOpen(false);
                           onViewNginxConfig();
                         }}
-                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-[#2e7675]/6 hover:text-[#2e7675]"
+                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-[13px] font-medium text-gray-700 transition-colors hover:bg-[#2e7675]/6 hover:text-[#2e7675]"
                       >
                         <Settings className="h-4 w-4" />
                         Configuracao NGINX
@@ -228,7 +230,7 @@ export function DashboardNavbar({
                       setUserMenuOpen(false);
                       handleLogout();
                     }}
-                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-[13px] font-medium text-red-600 transition-colors hover:bg-red-50"
                   >
                     <LogOut className="h-4 w-4" />
                     Sair

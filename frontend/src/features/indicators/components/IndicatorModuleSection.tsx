@@ -42,11 +42,11 @@ export function IndicatorModuleSection({
     >
       <div className="mb-4 flex flex-col gap-2 border-b border-[#dce8e3] pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-[1.15rem] font-black text-gray-900 sm:text-[1.3rem]">
+          <h2 className="font-dashboard-display text-[1.02rem] font-bold uppercase tracking-[0.08em] text-[#183938] sm:text-[1.14rem]">
             {category.label}
           </h2>
         </div>
-        <p className="text-xs font-medium text-gray-500 sm:text-sm">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 sm:text-xs">
           {count} item{count === 1 ? "" : "s"}
         </p>
       </div>

@@ -13,7 +13,7 @@ export function DashboardSidebar({
   onSelectCategory,
 }: DashboardSidebarProps) {
   return (
-    <aside className="sticky top-[96px] hidden h-fit w-[152px] shrink-0 self-start lg:block xl:top-[calc(50vh-118px)]">
+    <aside className="sticky pt-6 top-[82px] hidden h-fit w-[152px] shrink-0 self-start lg:block">
       <div className="max-h-[calc(100vh-128px)] space-y-1 overflow-y-auto">
         {categoryGroups.map((category) => {
           const isActive = category.value === activeCategory;
@@ -24,8 +24,8 @@ export function DashboardSidebar({
               onClick={() => onSelectCategory(category.value)}
               className={`group relative w-full pl-4 pr-2 text-left uppercase transition-all duration-200 ${
                 isActive
-                  ? "py-2 text-sm font-black tracking-[0.14em] text-[#173938]"
-                  : "py-1.5 text-[11px] font-semibold tracking-[0.12em] text-gray-500 hover:text-[#214f4e]"
+                  ? "font-dashboard-display py-2 text-[13px] font-bold tracking-[0.16em] text-[#173938]"
+                  : "py-1.5 text-[10px] font-semibold tracking-[0.14em] text-gray-500 hover:text-[#214f4e]"
               }`}
             >
               <span

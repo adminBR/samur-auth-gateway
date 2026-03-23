@@ -340,13 +340,15 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#edf5f1]">
+    <div className="font-dashboard-sans relative min-h-screen bg-[#edf5f1] text-[#223432]">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(181,225,202,0.34),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(46,118,117,0.14),transparent_28%),linear-gradient(180deg,#f7fcfa_0%,#edf5f1_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(46,118,117,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(46,118,117,0.045)_1px,transparent_1px)] bg-[size:34px_34px] opacity-60" />
       </div>
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-40 h-28 bg-[linear-gradient(180deg,rgba(15,23,42,0.34)_0%,rgba(15,23,42,0.16)_34%,rgba(15,23,42,0.05)_62%,transparent_100%)] blur-xl" />
 
       <div className="sticky top-0 z-50 px-2 pb-2 pt-2 sm:px-3 sm:pt-3 lg:px-4">
+        <div className="pointer-events-none absolute inset-x-0 -bottom-4 h-14 bg-[linear-gradient(180deg,rgba(15,23,42,0.42)_0%,rgba(15,23,42,0.22)_34%,rgba(15,23,42,0.08)_62%,transparent_100%)] opacity-65 blur-2xl" />
         <div className="mx-auto max-w-[1640px]">
           <DashboardNavbar
             handleLogout={handleLogout}

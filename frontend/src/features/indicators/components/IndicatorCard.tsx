@@ -60,20 +60,20 @@ export function IndicatorCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-3.5">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-sm font-bold text-gray-900 transition-colors group-hover:text-[#2e7675]">
+      <div className="flex flex-1 flex-col p-3">
+        <div className="flex items-start justify-between gap-2.5">
+          <h3 className="font-dashboard-display text-[13px] font-bold uppercase leading-[1.2] tracking-[0.05em] text-gray-900 transition-colors group-hover:text-[#2e7675]">
             {service.srv_name}
           </h3>
           <ChevronRight className="mt-0.5 h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-1 group-hover:text-[#2e7675]" />
         </div>
 
-        <p className="mt-1.5 flex-1 text-[13px] leading-5 text-gray-600">
+        <p className="mt-1 flex-1 text-[12px] leading-[1.35rem] text-gray-600">
           {service.srv_desc || "Sem descricao disponivel."}
         </p>
 
-        <div className="mt-2.5 flex items-center justify-between border-t border-gray-100 pt-2.5">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-[#2e7675]/8 px-2.5 py-1 text-[10px] font-medium text-[#2e7675]">
+        <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2">
+          <div className="font-dashboard-mono inline-flex items-center gap-1.5 rounded-full bg-[#2e7675]/8 px-2.5 py-1 text-[10px] font-medium text-[#2e7675]">
             <Globe className="h-3 w-3" />
             {service.srv_ip}
           </div>
