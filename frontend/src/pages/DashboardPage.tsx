@@ -95,15 +95,18 @@ export default function DashboardPage() {
     const section = sectionRefs.current[category];
 
     if (section) {
-      const top = section.getBoundingClientRect().top + window.scrollY - 118;
+      const top = section.getBoundingClientRect().top + window.scrollY - 108;
       window.scrollTo({ top, behavior: "smooth" });
     }
   };
 
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollTop = window.scrollY;
-      const scrollTop = currentScrollTop + 180;
+    let rafId = 0;
+    let ticking = false;
+
+    const syncScrollState = () => {
+      const currentScrollTop = Math.max(window.scrollY, 0);
+      const scrollTop = currentScrollTop + 200;
       let currentCategory: IndicatorCategory = "cpoe";
 
       indicatorCategories.forEach((category) => {
@@ -121,16 +124,37 @@ export default function DashboardPage() {
       setActiveCategory((prev) =>
         prev === currentCategory ? prev : currentCategory,
       );
-      setIsNavbarCondensed((prev) =>
-        prev === (currentScrollTop > 24) ? prev : currentScrollTop > 24,
-      );
+      setIsNavbarCondensed((prev) => {
+        if (currentScrollTop <= 8) {
+          return prev ? false : prev;
+        }
+
+        if (currentScrollTop >= 64) {
+          return prev ? prev : true;
+        }
+
+        return prev;
+      });
+      ticking = false;
     };
 
-    handleScroll();
+    const handleScroll = () => {
+      if (ticking) {
+        return;
+      }
+
+      ticking = true;
+      rafId = window.requestAnimationFrame(syncScrollState);
+    };
+
+    syncScrollState();
     window.addEventListener("scroll", handleScroll, { passive: true });
 
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [normalizedSearch, services.length]);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   const refreshServices = async () => {
     const request = await getServices();
@@ -316,8 +340,30 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#edf3f2]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] gap-4 px-3 pb-6 pt-3 sm:px-4 lg:gap-5 lg:px-5">
+    <div className="relative min-h-screen bg-[#edf5f1]">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(181,225,202,0.34),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(46,118,117,0.14),transparent_28%),linear-gradient(180deg,#f7fcfa_0%,#edf5f1_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(46,118,117,0.045)_1px,transparent_1px),linear-gradient(to_bottom,rgba(46,118,117,0.045)_1px,transparent_1px)] bg-[size:34px_34px] opacity-60" />
+      </div>
+
+      <div className="sticky top-0 z-50 px-2 pb-2 pt-2 sm:px-3 sm:pt-3 lg:px-4">
+        <div className="mx-auto max-w-[1640px]">
+          <DashboardNavbar
+            handleLogout={handleLogout}
+            setSearchTerm={setSearchTerm}
+            searchTerm={searchTerm}
+            isAdmin={isAdmin}
+            userName={userName}
+            onAddService={handleOpenAddModal}
+            onManageUsers={() => setUserManager((prev) => !prev)}
+            onViewNginxConfig={handleViewNginxConfig}
+            isAddLoading={isLoading}
+            isCondensed={isNavbarCondensed}
+          />
+        </div>
+      </div>
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[1640px] items-start gap-3 px-2 pb-8 pt-1 sm:px-3 lg:gap-4 lg:px-4">
         <DashboardSidebar
           categoryGroups={categoryGroups}
           activeCategory={activeCategory}
@@ -325,31 +371,16 @@ export default function DashboardPage() {
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="sticky top-0 z-40 bg-[#edf3f2] pb-3 pt-1 sm:pt-2">
-            <DashboardNavbar
-              handleLogout={handleLogout}
-              setSearchTerm={setSearchTerm}
-              searchTerm={searchTerm}
-              isAdmin={isAdmin}
-              userName={userName}
-              onAddService={handleOpenAddModal}
-              onManageUsers={() => setUserManager((prev) => !prev)}
-              onViewNginxConfig={handleViewNginxConfig}
-              isAddLoading={isLoading}
-              isCondensed={isNavbarCondensed}
-            />
-          </div>
-
           <MobileCategoryTabs
             categoryGroups={categoryGroups}
             activeCategory={activeCategory}
             onSelectCategory={scrollToCategory}
           />
 
-          <main className="flex-1 pt-1">
+          <main className="-mt-4 flex-1 pt-10 sm:-mt-5 sm:pt-12">
             <div className="min-h-[260px]">
               {totalVisibleIndicators > 0 ? (
-                <div className="space-y-10">
+                <div className="space-y-5">
                   {categoryGroups.map((category) => (
                     <IndicatorModuleSection
                       key={category.value}
@@ -357,6 +388,7 @@ export default function DashboardPage() {
                       count={category.count}
                       services={category.services}
                       isAdmin={isAdmin}
+                      isActive={category.value === activeCategory}
                       sectionRef={(node) => {
                         sectionRefs.current[category.value] = node;
                       }}

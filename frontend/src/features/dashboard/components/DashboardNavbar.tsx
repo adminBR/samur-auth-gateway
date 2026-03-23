@@ -52,14 +52,62 @@ export function DashboardNavbar({
 
   return (
     <nav
-      className={`relative z-[60] border bg-white transition-all duration-300 ease-out ${
+      className={`relative z-[60] flex items-center rounded-[24px] border px-2.5 transition-[min-height,padding,background-color,border-color,box-shadow] duration-300 ease-out sm:px-3 ${
         isCondensed
-          ? "rounded-[18px] border-gray-300 px-3 py-2 shadow-[0_16px_36px_rgba(15,23,42,0.12)] sm:px-4"
-          : "rounded-[24px] border-gray-200 px-4 py-3.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] sm:px-5"
+          ? "min-h-[44px] border-[#d8e5e0] bg-[#f8fcfa] py-0.5 shadow-[0_6px_14px_rgba(15,23,42,0.06)]"
+          : "min-h-[76px] border-transparent bg-transparent py-2.5 shadow-none"
       }`}
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-1 items-center gap-3 lg:max-w-[42rem]">
+      <div
+        className={`w-full flex flex-col transition-[gap,min-height] duration-300 lg:grid lg:grid-cols-[250px_minmax(0,1fr)] lg:items-stretch ${
+          isCondensed ? "gap-1 lg:min-h-[36px]" : "gap-3 lg:min-h-[58px]"
+        }`}
+      >
+        <div
+          className={`flex min-h-[58px] items-center gap-3 rounded-[20px] border px-3 py-2.5 transition-[min-height,padding,background-color,border-color,box-shadow] duration-300 ${
+            isCondensed
+              ? "min-h-[34px] border-transparent bg-transparent px-2 py-1 shadow-none"
+              : "border-[#d8e5e0] bg-white shadow-[0_8px_18px_rgba(15,23,42,0.045)]"
+          }`}
+        >
+          <div
+            className={`flex items-center justify-center rounded-2xl border border-[#dce8e3] bg-[#f6fbf8] shadow-[0_6px_14px_rgba(46,118,117,0.06)] transition-[width,height] duration-300 ${
+              isCondensed ? "h-8 w-8" : "h-12 w-12"
+            }`}
+          >
+            <img
+              src="/logo-colored.webp"
+              alt="Indicadores"
+              className={`h-auto object-contain transition-[width] duration-300 ${
+                isCondensed ? "w-5" : "w-8"
+              }`}
+            />
+          </div>
+          <div className="min-w-0">
+            <p
+              className={`font-semibold uppercase tracking-[0.2em] text-[#2e7675] ${
+                isCondensed ? "text-[8px]" : "text-[10px]"
+              }`}
+            >
+              Portal Interno
+            </p>
+            <p
+              className={`truncate font-black text-[#214f4e] ${
+                isCondensed ? "text-sm leading-none" : "text-base"
+              }`}
+            >
+              Indicadores
+            </p>
+          </div>
+        </div>
+
+        <div
+          className={`flex min-h-[58px] items-center gap-2.5 rounded-[20px] border px-2.5 py-2.5 transition-[min-height,padding,background-color,border-color,box-shadow] duration-300 ${
+            isCondensed
+              ? "min-h-[34px] border-transparent bg-transparent py-1 shadow-none"
+              : "border-[#d8e5e0] bg-white shadow-[0_8px_18px_rgba(15,23,42,0.045)]"
+          }`}
+        >
           <div className="relative w-full">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
               <Search className="h-4 w-4 text-gray-400" />
@@ -67,52 +115,56 @@ export function DashboardNavbar({
             <input
               type="text"
               placeholder="Pesquisar indicadores..."
-              className={`block w-full border pl-11 pr-4 text-sm text-gray-900 outline-none transition-all duration-300 focus:border-[#2e7675]/30 focus:bg-white focus:ring-4 focus:ring-[#2e7675]/10 ${
-                isCondensed
-                  ? "rounded-[16px] border-gray-200 bg-white py-2"
-                  : "rounded-[18px] border-gray-200 bg-gray-50 py-3"
+              className={`block w-full rounded-[16px] border border-[#dbe7e2] bg-[#fbfdfc] pl-11 pr-4 text-sm text-gray-900 outline-none transition-[border-color,background-color,box-shadow] duration-300 focus:border-[#2e7675]/30 focus:bg-white focus:ring-4 focus:ring-[#2e7675]/10 ${
+                isCondensed ? "h-8" : "h-10"
               }`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-        </div>
 
-        <div className="flex items-center justify-end lg:pl-4">
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setUserMenuOpen((prev) => !prev)}
-              className={`inline-flex items-center gap-3 border text-left transition-all duration-300 hover:border-[#2e7675]/20 hover:bg-white ${
+              className={`inline-flex shrink-0 items-center border border-[#dbe7e2] text-left transition-[width,padding,border-color,background-color,box-shadow] duration-300 hover:border-[#2e7675]/20 hover:bg-white ${
                 isCondensed
-                  ? "rounded-[16px] border-gray-200 bg-white px-2.5 py-1.5 shadow-sm"
-                  : "rounded-[20px] border-gray-200 bg-gray-50 px-3.5 py-2"
+                  ? "h-8 w-8 justify-center rounded-[14px] bg-white px-0 shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
+                  : "h-10 gap-3 rounded-[16px] bg-[#fbfdfc] px-3 shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
               }`}
               title="Minha conta"
             >
               <div
-                className={`flex items-center justify-center rounded-xl bg-[#2e7675]/10 text-[#2e7675] ${
-                  isCondensed ? "h-9 w-9" : "h-10 w-10"
+                className={`flex items-center justify-center rounded-xl bg-[#2e7675]/10 text-[#2e7675] transition-[width,height] duration-300 ${
+                  isCondensed ? "h-6 w-6" : "h-8 w-8"
                 }`}
               >
-                <UserCircle className="h-5 w-5" />
+                <UserCircle className="h-4.5 w-4.5" />
               </div>
-              <div className="hidden min-w-0 sm:block">
+              <div
+                className={`min-w-0 overflow-hidden transition-[max-width,opacity,transform] duration-[200ms] ${
+                  isCondensed
+                    ? "max-w-0 translate-x-1 opacity-0"
+                    : "hidden max-w-[180px] opacity-100 sm:block"
+                }`}
+              >
                 <p className="max-w-[150px] truncate text-sm font-semibold text-gray-900">
                   {userName || "Usuario"}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-[11px] text-gray-500">
                   {isAdmin ? "Administrador" : "Acesso padrao"}
                 </p>
               </div>
-              <ChevronDown
-                className={`h-4 w-4 text-gray-400 transition-transform ${
-                  userMenuOpen ? "rotate-180" : ""
-                }`}
-              />
+              {!isCondensed && (
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-400 transition-transform duration-[200ms] ${
+                    userMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              )}
             </button>
 
             {userMenuOpen && (
-              <div className="absolute right-0 top-full z-[80] mt-3 w-[280px] overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.16)]">
+              <div className="absolute right-0 top-full z-[80] mt-3 w-[280px] overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-[0_14px_30px_rgba(15,23,42,0.1)]">
                 <div className="border-b border-gray-100 bg-gray-50 px-4 py-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#2e7675]/12 text-[#2e7675]">

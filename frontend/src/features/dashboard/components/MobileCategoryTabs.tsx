@@ -13,7 +13,7 @@ export function MobileCategoryTabs({
   onSelectCategory,
 }: MobileCategoryTabsProps) {
   return (
-    <div className="sticky top-[78px] z-30 -mx-3 mb-3 flex gap-2 overflow-x-auto bg-[#edf3f2] px-3 py-1 sm:-mx-4 sm:px-4 lg:hidden">
+    <div className="sticky top-[86px] z-30 -mx-2 mb-3 flex gap-2 overflow-x-auto px-2 py-1 sm:-mx-3 sm:px-3 lg:hidden">
       {categoryGroups.map((category) => {
         const isActive = category.value === activeCategory;
 
@@ -23,15 +23,15 @@ export function MobileCategoryTabs({
             onClick={() => onSelectCategory(category.value)}
             className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-all duration-300 ${
               isActive
-                ? "border-[#2e7675] bg-[#2e7675] text-white shadow-[0_14px_24px_rgba(46,118,117,0.22)]"
-                : "border-gray-200 bg-white text-gray-700"
+                ? "border-[#2e7675]/20 bg-white text-[#2e7675] shadow-[0_14px_24px_rgba(46,118,117,0.14)]"
+                : "border-[#dce8e3] bg-white text-gray-700"
             }`}
           >
             {category.label}
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${
                 isActive
-                  ? "bg-white/16 text-white"
+                  ? "bg-[#2e7675]/8 text-[#2e7675]"
                   : "bg-gray-100 text-gray-500"
               }`}
             >
