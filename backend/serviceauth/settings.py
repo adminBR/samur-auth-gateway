@@ -1,6 +1,6 @@
 from datetime import timedelta
 from pathlib import Path
-from utils.env import env, env_bool, env_list
+from utils.env import env, env_bool, env_int, env_list
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -87,18 +87,42 @@ DATABASES = {
 
 
 # Authentication / API
+AUTH_TOKEN_ALGORITHM = env("AUTH_TOKEN_ALGORITHM", "HS256")
+AUTH_ACCESS_TOKEN_DEFAULT_DAYS = env("AUTH_ACCESS_TOKEN_DEFAULT_DAYS", "1")
+AUTH_REFRESH_TOKEN_DAYS = env_int("AUTH_REFRESH_TOKEN_DAYS", 90)
+AUTH_ACCESS_TOKEN_COOKIE_NAME = env("AUTH_ACCESS_TOKEN_COOKIE_NAME", "token")
+AUTH_REFRESH_TOKEN_COOKIE_NAME = env(
+    "AUTH_REFRESH_TOKEN_COOKIE_NAME",
+    "refresh_token",
+)
+AUTH_COOKIE_DOMAIN = env("AUTH_COOKIE_DOMAIN") or None
+AUTH_COOKIE_PATH = env("AUTH_COOKIE_PATH", "/")
+AUTH_COOKIE_SAMESITE = env("AUTH_COOKIE_SAMESITE", "Lax")
+AUTH_COOKIE_SECURE = env_bool("AUTH_COOKIE_SECURE", not DEBUG)
+AUTH_COOKIE_HTTPONLY = env_bool("AUTH_COOKIE_HTTPONLY", True)
+AUTH_INFINITE_TOKEN_COOKIE_MAX_AGE_SECONDS = env_int(
+    "AUTH_INFINITE_TOKEN_COOKIE_MAX_AGE_SECONDS",
+    60 * 60 * 24 * 365 * 20,
+)
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "users.auth.JWTCustomAuth",
     ),
 }
 
+_default_simple_jwt_access_days = (
+    365 * 20
+    if AUTH_ACCESS_TOKEN_DEFAULT_DAYS == "inf"
+    else int(AUTH_ACCESS_TOKEN_DEFAULT_DAYS)
+)
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=_default_simple_jwt_access_days),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=AUTH_REFRESH_TOKEN_DAYS),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    "ALGORITHM": "HS256",
+    "ALGORITHM": AUTH_TOKEN_ALGORITHM,
     "SIGNING_KEY": SECRET_KEY,
 }
 

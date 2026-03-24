@@ -1,15 +1,13 @@
-// api/axios.ts
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { buildLoginRedirectPath } from "../utils/redirect";
 import type { IndicatorCategory } from "../features/indicators";
 
-// --- Types for User Management ---
 export interface User {
   id: number;
   username: string;
   is_admin: boolean;
   access: string;
-  created_at?: string; // Optional, as it might not always be needed/returned
+  created_at?: string;
   jwt_expiration: string;
 }
 
@@ -22,7 +20,7 @@ export interface NewUserPayload {
 }
 
 export interface UpdateUserPayload {
-  user_pass?: string; // Password is optional on update
+  user_pass?: string;
   is_admin?: boolean;
   access?: string;
   jwt_expiration: string;
@@ -35,90 +33,125 @@ export interface AdminService {
   srv_category: IndicatorCategory;
 }
 
-//const API_BASE_URL = "http://192.168.1.64";
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+interface AuthRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+  skipAuthHeader?: boolean;
+  skipAuthRefresh?: boolean;
+  skipAuthRedirect?: boolean;
+}
 
-// Create an Axios instance
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+const ACCESS_TOKEN_STORAGE_KEY = "access_token";
+const REFRESH_TOKEN_STORAGE_KEY = "refresh_token";
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {},
+  withCredentials: true,
 });
 
-// Helper to get tokens from localStorage
-const getAccessToken = () => localStorage.getItem("access_token");
-//const getRefreshToken = () => localStorage.getItem("refresh_token");
+const authClient = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+});
 
-// Attach access token to each request
+const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+
+const clearStoredAuth = () => {
+  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  localStorage.removeItem("isAdmin");
+};
+
+const refreshAccessToken = async (): Promise<string | null> => {
+  try {
+    const res = await authClient.post("api_gateway/v1/users/refresh/", {});
+    const accessToken = res.data?.access_token;
+
+    if (!accessToken) {
+      return null;
+    }
+
+    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
+    return accessToken;
+  } catch {
+    return null;
+  }
+};
+
 api.interceptors.request.use(
   (config) => {
-    const token = getAccessToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const requestConfig = config as AuthRequestConfig;
+
+    if (requestConfig.skipAuthHeader) {
+      if (requestConfig.headers) {
+        delete requestConfig.headers.Authorization;
+      }
+      return requestConfig;
     }
-    return config;
+
+    const token = getAccessToken();
+    if (token) {
+      requestConfig.headers = requestConfig.headers ?? {};
+      requestConfig.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return requestConfig;
   },
   (error) => Promise.reject(error),
 );
 
-// Auto-refresh access token on 401
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    //const originalRequest = error.config;
-    // Any prohibited or unauthorized request will send the user back to login
-    if ([401, 403].includes(error.response?.status)) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      window.location.href = buildLoginRedirectPath();
+    const originalRequest = error.config as AuthRequestConfig | undefined;
+    const status = error.response?.status;
+
+    if (!originalRequest || !status) {
       return Promise.reject(error);
     }
 
-    /*if (error.response?.status === 401 && !originalRequest._retry) {
-      console.log()
+    if (
+      status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.skipAuthRefresh
+    ) {
       originalRequest._retry = true;
+      const refreshedAccessToken = await refreshAccessToken();
 
-      try {
-        const refreshToken = getRefreshToken();
-        if (!refreshToken) {
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
-          window.location.href = "/login";
-          return Promise.reject(error);
+      if (refreshedAccessToken) {
+        if (!originalRequest.skipAuthHeader) {
+          originalRequest.headers = originalRequest.headers ?? {};
+          originalRequest.headers.Authorization = `Bearer ${refreshedAccessToken}`;
         }
-        const res = await axios.post(`api/token/refresh/`, {
-          refresh_token: refreshToken,
-        });
 
-        const { access_token } = res.data;
-        localStorage.setItem("access_token", access_token);
-
-        originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return api(originalRequest);
-      } catch (refreshError) {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        window.location.href = "/login";
-        return Promise.reject(refreshError);
       }
-    }*/
+    }
+
+    if ([401, 403].includes(status) && !originalRequest.skipAuthRedirect) {
+      clearStoredAuth();
+      window.location.href = buildLoginRedirectPath();
+    }
 
     return Promise.reject(error);
   },
 );
 
 export const loginUser = async (user_name: string, user_pass: string) => {
-  const body = {
-    user_name: user_name,
-    user_pass: user_pass,
-  };
-  console.log(body);
-  const res = await api.post("api_gateway/v1/users/login/", body, {
-    withCredentials: true,
-  });
+  const res = await api.post(
+    "api_gateway/v1/users/login/",
+    { user_name, user_pass },
+    {
+      skipAuthHeader: true,
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    } as AuthRequestConfig,
+  );
 
-  localStorage.setItem("access_token", res.data.access_token);
-  localStorage.setItem("refresh_token", res.data.refresh_token);
-  localStorage.setItem("isAdmin", res.data.isAdmin);
+  localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, res.data.access_token);
+  localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  localStorage.setItem("isAdmin", String(res.data.isAdmin));
 
   return res.data;
 };
@@ -126,9 +159,11 @@ export const loginUser = async (user_name: string, user_pass: string) => {
 export const validateToken = async () => {
   try {
     const res = await api.get("api_gateway/v1/users/validate", {
-      withCredentials: true,
-    });
-    return res.data; // { valid: true, user_id, user_name }
+      skipAuthHeader: true,
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    } as AuthRequestConfig);
+    return res.data;
   } catch {
     return { valid: false };
   }
@@ -136,29 +171,33 @@ export const validateToken = async () => {
 
 export const logoutUser = async () => {
   try {
-    await api.get("api_gateway/v1/users/logout");
+    await api.get("api_gateway/v1/users/logout", {
+      skipAuthHeader: true,
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    } as AuthRequestConfig);
+    clearStoredAuth();
     return true;
   } catch {
+    clearStoredAuth();
     return false;
   }
 };
 
-// --- Admin User Management API Calls ---
-
 export const getAllUsersAdmin = async (): Promise<User[]> => {
-  const res = await api.get("api_gateway/v1/users/admin/"); // Adjust path if needed
+  const res = await api.get("api_gateway/v1/users/admin/");
   return res.data;
 };
 
 export const createUserAdmin = async (
   userData: NewUserPayload,
 ): Promise<{ response: string; user: User }> => {
-  const res = await api.post("api_gateway/v1/users/admin/", userData); // Adjust path
+  const res = await api.post("api_gateway/v1/users/admin/", userData);
   return res.data;
 };
 
 export const getUserDetailsAdmin = async (userId: number): Promise<User> => {
-  const res = await api.get(`api_gateway/v1/users/admin/${userId}/`); // Adjust path
+  const res = await api.get(`api_gateway/v1/users/admin/${userId}/`);
   return res.data;
 };
 
@@ -166,19 +205,19 @@ export const updateUserAdmin = async (
   userId: number,
   userData: UpdateUserPayload,
 ): Promise<{ response: string; user: User }> => {
-  const res = await api.put(`api_gateway/v1/users/admin/${userId}/`, userData); // Adjust path
+  const res = await api.put(`api_gateway/v1/users/admin/${userId}/`, userData);
   return res.data;
 };
 
 export const deleteUserAdmin = async (
   userId: number,
 ): Promise<{ response: string }> => {
-  const res = await api.delete(`api_gateway/v1/users/admin/${userId}/`); // Adjust path
+  const res = await api.delete(`api_gateway/v1/users/admin/${userId}/`);
   return res.data;
 };
 
 export const getAllServicesForAdmin = async (): Promise<AdminService[]> => {
-  const res = await api.get("api_gateway/v1/users/admin/services/all/"); // Adjust path to match your Django urls.py
+  const res = await api.get("api_gateway/v1/users/admin/services/all/");
   return res.data;
 };
 
@@ -190,8 +229,8 @@ export interface MeResponse {
 
 export const getMe = async (): Promise<MeResponse> => {
   const res = await api.get("api_gateway/v1/users/me/", {
-    withCredentials: true,
-  });
+    skipAuthHeader: true,
+  } as AuthRequestConfig);
   return res.data;
 };
 

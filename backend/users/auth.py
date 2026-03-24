@@ -1,7 +1,14 @@
-from django.conf import settings
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 import jwt
+
+from utils.jwt import (
+    TOKEN_TYPE_ACCESS,
+    decode_token,
+    get_access_token_from_request,
+    validate_token_payload,
+)
+
 
 class CustomUser:
     def __init__(self, user_id, username):
@@ -9,16 +16,19 @@ class CustomUser:
         self.username = username
         self.is_authenticated = True  # Required for DRF permission checks
 
+
 class JWTCustomAuth(BaseAuthentication):
     def authenticate(self, request):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith("Bearer "):
+        token = get_access_token_from_request(request)
+        if not token:
             return None
-        
-        token = auth_header.split(" ")[1]
 
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+            payload = validate_token_payload(
+                decode_token(token),
+                expected_token_type=TOKEN_TYPE_ACCESS,
+                allow_legacy=True,
+            )
         except jwt.ExpiredSignatureError:
             raise AuthenticationFailed("Token expired.")
         except jwt.InvalidTokenError:

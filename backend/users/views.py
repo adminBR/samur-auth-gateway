@@ -1,29 +1,46 @@
-from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError,APIException,AuthenticationFailed
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import AllowAny
-from rest_framework.authentication import get_authorization_header
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
-from datetime import datetime,timedelta,timezone
+from datetime import datetime,timezone
 import jwt
 import psycopg2
 import re
 import logging
 
-from .serializers import SumInputSerializer
-from utils.jwt import create_token,decode_token,get_admin_user_from_token
+from utils.jwt import (
+    TOKEN_TYPE_ACCESS,
+    TOKEN_TYPE_REFRESH,
+    clear_auth_cookies,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    fetch_user_auth_context,
+    get_access_token_from_request,
+    get_admin_user_from_token,
+    get_refresh_token_from_request,
+    serialize_access_lifetime,
+    set_access_token_cookie,
+    set_refresh_token_cookie,
+    validate_token_payload,
+)
 from utils.database import get_db_connection
 
 logger = logging.getLogger(__name__)
 
 PASSWORD_REGEX = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).+$')  # At least one letter and one number
 MIN_PASSWORD_LENGTH = 6
-JWT_DEFAULT_EXPIRATION = 1
+
+
+def normalize_jwt_expiration(value):
+    try:
+        return serialize_access_lifetime(value)
+    except ValueError as exc:
+        raise ValidationError({"detail": str(exc)}) from exc
 
 def validate_password(password):
     if len(password) < MIN_PASSWORD_LENGTH:
@@ -53,7 +70,7 @@ class UserRegister(APIView):
         user_name = request.data.get('user_name')
         user_name = user_name.lower()
         user_pass = request.data.get('user_pass')
-        jwt_expiration = request.data.get('jwt_expiration')
+        jwt_expiration = normalize_jwt_expiration(request.data.get('jwt_expiration'))
 
         logger.info(f"User registration attempt for username: {user_name}")
 
@@ -68,7 +85,7 @@ class UserRegister(APIView):
             cur.execute("""
                 INSERT INTO usr_info (usr_login, usr_password, usr_access, usr_admin, created_at, jwt_expiration) 
                 VALUES (%s, %s, %s, %s, %s,%s)
-            """, (user_name, user_pass, "0", False, datetime.now(tz=timezone.utc),jwt_expiration))
+            """, (user_name, user_pass, "0", False, datetime.now(tz=timezone.utc), jwt_expiration))
 
             conn.commit()
             logger.info(f"User registered successfully: {user_name}")
@@ -124,8 +141,9 @@ class UserLogin(APIView):
             logger.warning(f"Login failed for username: {user_name} - Invalid credentials")
             raise ValidationError({"detail":"User not found or invalid credentials."})
 
-        access_token = create_token(user[0], user_name, "inf" if user[2]=="inf" else int(user[2]))
-        refresh_token = create_token(user[0], user_name, 90)
+        jwt_expiration = normalize_jwt_expiration(user[2])
+        access_token = create_access_token(user[0], user_name, jwt_expiration)
+        refresh_token = create_refresh_token(user[0], user_name)
 
         logger.info(f"User logged in successfully: {user_name} (ID: {user[0]})")
 
@@ -135,18 +153,10 @@ class UserLogin(APIView):
             "access_token": access_token,
             "refresh_token": refresh_token,
             "isAdmin":user[1],
-            "jwt_expiration":user[2]
+            "jwt_expiration": jwt_expiration
         })
-        resp.set_cookie(
-            key="token",
-            value=access_token,
-            httponly=True,
-            secure=False,
-            domain="indicadores.samur.br",
-            samesite="Lax",
-            path="/",
-            max_age=60 * 60 * 24 * 365 * 20 if user[2]=="inf" else 60 * 60 * 24 * 1
-        ) # Cookie will last for 20 years if its infinite or the 1 day for finite
+        set_access_token_cookie(resp, access_token, jwt_expiration)
+        set_refresh_token_cookie(resp, refresh_token)
         return resp
         
 
@@ -155,7 +165,7 @@ class UserLogout(APIView):
     def get(self,request):
         logger.info(f"User logout for user_id: {request.user.id if hasattr(request, 'user') else 'Unknown'}")
         response = Response({'message': 'Logged out'})
-        response.delete_cookie('token')  # This must match the cookie name you set
+        clear_auth_cookies(response)
         return response
 
         
@@ -164,27 +174,27 @@ class ValidateToken(APIView):
     authentication_classes = []
 
     def get(self, request):
-        auth = get_authorization_header(request).decode()
         service_id = request.headers.get("X-Service-ID")
-        token = request.COOKIES.get('token')
-        logger.debug(f"Token validation attempt - Service ID: {service_id}, Token present: {bool(token) or bool(auth)}")
+        token = get_access_token_from_request(request, prefer_cookie=True)
+        logger.debug(
+            "Token validation attempt - Service ID: %s, Token present: %s",
+            service_id,
+            bool(token),
+        )
         if not token:
-            if auth:
-                token = auth.split(' ')[1]
-            else:
-                logger.warning("Token validation failed: No token provided")
-                return Response({"detail": "No token provided"}, 
-                            status=status.HTTP_401_UNAUTHORIZED)
+            logger.warning("Token validation failed: No token provided")
+            return Response(
+                {"detail": "No token provided"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
         try:
-            payload = decode_token(token)
+            payload = validate_token_payload(
+                decode_token(token),
+                expected_token_type=TOKEN_TYPE_ACCESS,
+                allow_legacy=True,
+            )
             logger.debug(f"Token decoded successfully for user_id: {payload.get('user_id')}")
-            if(payload["expiration"] != "inf"):
-                expiration = datetime.fromisoformat(payload["expiration"])
-                if expiration < datetime.now(timezone.utc):
-                    logger.warning(f"Token validation failed: Token expired for user_id: {payload.get('user_id')}")
-                    return Response({"detail":"Token expired"},status=status.HTTP_401_UNAUTHORIZED)
-                
             user_id = payload["user_id"]
 
             if service_id:
@@ -222,6 +232,9 @@ class ValidateToken(APIView):
             logger.warning("Token validation failed: Invalid token")
             return Response({"detail":"Invalid token"},
                             status=status.HTTP_401_UNAUTHORIZED)
+        except AuthenticationFailed as e:
+            logger.warning("Token validation failed: %s", str(e))
+            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
             logger.error(f"Unexpected error during token validation: {str(e)}", exc_info=True)
             return Response({"detail": str(e)},
@@ -233,28 +246,45 @@ class RefreshToken(APIView):
     authentication_classes = []
 
     def post(self, request):
-        refresh_token = request.data.get("refresh_token")
+        refresh_token = request.data.get("refresh_token") or get_refresh_token_from_request(
+            request,
+            prefer_cookie=True,
+        )
         if not refresh_token:
             logger.warning("Token refresh attempted without refresh_token")
             return Response({"detail": "Refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         logger.debug("Attempting to refresh token")
         try:
-            payload = decode_token(refresh_token)
-            
-            if(payload["expiration"] != "inf"):
-                expiration = datetime.fromisoformat(payload["expiration"])
-                if expiration < datetime.now(timezone.utc):
-                    logger.warning(f"Token refresh failed: Refresh token expired for user_id: {payload.get('user_id')}")
-                    return Response({"detail": "Refresh token expired"}, status=status.HTTP_401_UNAUTHORIZED)
+            payload = validate_token_payload(
+                decode_token(refresh_token),
+                expected_token_type=TOKEN_TYPE_REFRESH,
+                allow_legacy=True,
+            )
+            user_id = payload["user_id"]
+            user_context = fetch_user_auth_context(user_id)
+            if not user_context:
+                logger.warning("Token refresh failed: User not found for user_id=%s", user_id)
+                return Response({"detail": "User not found"}, status=status.HTTP_401_UNAUTHORIZED)
 
-            # Issue a new access token
-            new_access_token = create_token(payload["user_id"],payload["user_name"],payload["expiration"])
+            new_access_token = create_access_token(
+                user_id,
+                user_context["user_name"],
+                user_context["jwt_expiration"],
+            )
 
             logger.info(f"Token refreshed successfully for user_id: {payload.get('user_id')}")
-            return Response({
-                "access_token": f"Bearer {new_access_token}"
-            }, status=status.HTTP_200_OK)
+            response = Response(
+                {"access_token": new_access_token},
+                status=status.HTTP_200_OK,
+            )
+            set_access_token_cookie(
+                response,
+                new_access_token,
+                user_context["jwt_expiration"],
+            )
+            set_refresh_token_cookie(response, refresh_token, payload=payload)
+            return response
 
         except jwt.ExpiredSignatureError:
             logger.warning("Token refresh failed: Token expired")
@@ -262,6 +292,9 @@ class RefreshToken(APIView):
         except jwt.InvalidTokenError:
             logger.warning("Token refresh failed: Invalid token")
             return Response({"detail": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED)
+        except AuthenticationFailed as e:
+            logger.warning("Token refresh failed: %s", str(e))
+            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
             logger.error(f"Unexpected error during token refresh: {str(e)}", exc_info=True)
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -287,7 +320,7 @@ class AdminAllUsersOperations(APIView):
                     "is_admin": row[2], 
                     "access": row[3],
                     "created_at": row[4].isoformat() if row[4] else None,
-                    "jwt_expiration": row[5]
+                    "jwt_expiration": normalize_jwt_expiration(row[5])
                 } for row in users_data
             ]
             logger.debug(f"Retrieved {len(users_list)} users from database")
@@ -308,7 +341,7 @@ class AdminAllUsersOperations(APIView):
         user_pass = data.get('user_pass')
         is_admin = data.get('is_admin', False)
         usr_access = data.get('access', "")
-        jwt_expiration = data.get('jwt_expiration')
+        jwt_expiration = normalize_jwt_expiration(data.get('jwt_expiration'))
 
         if not user_name:
             logger.warning(f"Admin {admin_user['user_id']} attempted to create user without user_name")
@@ -336,7 +369,7 @@ class AdminAllUsersOperations(APIView):
             cur.execute("""
                 INSERT INTO usr_info (usr_login, usr_password, usr_admin, usr_access, created_at, jwt_expiration)
                 VALUES (%s, %s, %s, %s, %s, %s) RETURNING usr_id
-            """, (user_name, user_pass_processed, bool(is_admin), usr_access, datetime.now(tz=timezone.utc),jwt_expiration))
+            """, (user_name, user_pass_processed, bool(is_admin), usr_access, datetime.now(tz=timezone.utc), jwt_expiration))
             response = cur.fetchone()
             
             if(response and response[0]):
@@ -387,7 +420,7 @@ class AdminSingleUserOperations(APIView):
                 "is_admin": user_data[2], 
                 "access": user_data[3],
                 "created_at": user_data[4].isoformat() if user_data[4] else None,
-                "jwt_expiration": user_data[5]
+                "jwt_expiration": normalize_jwt_expiration(user_data[5])
             }
             return Response(user_details, status=status.HTTP_200_OK)
         except psycopg2.Error as e:
@@ -403,7 +436,7 @@ class AdminSingleUserOperations(APIView):
 
         data = request.data
         user_pass = data.get('user_pass')
-        is_admin = data.get('is_admin',False)
+        is_admin = data.get('is_admin')
         usr_access = data.get('access')
         jwt_expiration = data.get('jwt_expiration')
 
@@ -434,7 +467,7 @@ class AdminSingleUserOperations(APIView):
             
         if jwt_expiration is not None:
             update_fields.append("jwt_expiration = %s")
-            update_values.append(jwt_expiration)
+            update_values.append(normalize_jwt_expiration(jwt_expiration))
         
         if not update_fields:
             logger.warning(f"User update attempted with no data provided for user_id: {target_user_id}")
@@ -480,7 +513,7 @@ class AdminSingleUserOperations(APIView):
                 "username": updated_user[1],
                 "is_admin": updated_user[2],
                 "access": updated_user[3],
-                "jwt_expiration": updated_user[4]
+                "jwt_expiration": normalize_jwt_expiration(updated_user[4])
             }
         }, status=status.HTTP_200_OK)
 
@@ -557,50 +590,35 @@ class UserMe(APIView):
     authentication_classes = []
 
     def get(self, request):
-        token = request.COOKIES.get('token')
-        auth = get_authorization_header(request).decode()
-
+        token = get_access_token_from_request(request, prefer_cookie=True)
         if not token:
-            if auth and auth.startswith('Bearer '):
-                token = auth.split(' ')[1]
-            else:
-                logger.warning("UserMe: No token provided")
-                return Response({"detail": "No token provided"}, status=status.HTTP_401_UNAUTHORIZED)
+            logger.warning("UserMe: No token provided")
+            return Response({"detail": "No token provided"}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-            payload = decode_token(token)
-            if payload["expiration"] != "inf":
-                expiration = datetime.fromisoformat(payload["expiration"])
-                if expiration < datetime.now(timezone.utc):
-                    return Response({"detail": "Token expired"}, status=status.HTTP_401_UNAUTHORIZED)
-
+            payload = validate_token_payload(
+                decode_token(token),
+                expected_token_type=TOKEN_TYPE_ACCESS,
+                allow_legacy=True,
+            )
             user_id = payload["user_id"]
-            conn = get_db_connection()
-            cur = conn.cursor()
-            try:
-                cur.execute("SELECT usr_admin FROM usr_info WHERE usr_id = %s", (user_id,))
-                row = cur.fetchone()
-                if not row:
-                    return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-                is_admin = row[0]
-            except psycopg2.Error as e:
-                logger.error(f"Database error in UserMe: {str(e)}", exc_info=True)
-                raise APIException({"detail": "Database query error!"})
-            finally:
-                cur.close()
-                conn.close()
+            user_context = fetch_user_auth_context(user_id)
+            if not user_context:
+                return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
             logger.info(f"UserMe: returned data for user_id {user_id}")
             return Response({
-                "user_id": payload["user_id"],
-                "user_name": payload["user_name"],
-                "is_admin": is_admin
+                "user_id": user_id,
+                "user_name": user_context["user_name"],
+                "is_admin": user_context["is_admin"]
             }, status=status.HTTP_200_OK)
 
         except jwt.ExpiredSignatureError:
             return Response({"detail": "Token expired"}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.InvalidTokenError:
             return Response({"detail": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED)
+        except AuthenticationFailed as e:
+            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
             logger.error(f"Unexpected error in UserMe: {str(e)}", exc_info=True)
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
