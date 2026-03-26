@@ -1,276 +1,391 @@
-# Frontend Design Structure
+# Frontend Reference
 
 ## Purpose
 
-This document describes the current frontend structure, visual organization, and domain boundaries for the authentication and indicators portal. It is intended to be a stable reference for developers and future agents working on the frontend.
+This frontend is the operator-facing portal for the auth gateway.
 
-## Frontend Scope
+It does three main jobs:
 
-The frontend is organized around four main concerns:
+1. Lets users log in and keep a browser session alive.
+2. Shows the list of internal services the current user may open.
+3. Gives admins UI tools for user management, service management, and NGINX config publishing.
 
-- application entry and routing
-- pages
-- user-facing dashboard systems
-- admin systems
+Primary source files:
 
-## Folder Structure
+- `frontend/src/App.tsx`
+- `frontend/src/pages/LoginPage.tsx`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/api/axios.ts`
+- `frontend/src/api/services.ts`
+
+## Runtime Entry Points
+
+- app bootstrap: `frontend/src/main.tsx`
+- route map: `frontend/src/App.tsx`
+- route guard: `frontend/src/routes/PrivateRoute.tsx`
+- auth helpers: `frontend/src/utils/auth.ts`
+- post-login redirect helpers: `frontend/src/utils/redirect.ts`
+- static SPA NGINX config: `frontend/default.conf`
+- build/dev scripts: `frontend/package.json`
+
+## Route Map
+
+| Route | Purpose | Source files |
+| --- | --- | --- |
+| `/login` | Login page with optional `next` redirect target. | `frontend/src/App.tsx`, `frontend/src/pages/LoginPage.tsx`, `frontend/src/utils/redirect.ts` |
+| `/` | Main authenticated dashboard. Protected by `PrivateRoute`. | `frontend/src/App.tsx`, `frontend/src/routes/PrivateRoute.tsx`, `frontend/src/pages/DashboardPage.tsx` |
+| `*` | Fallback 404 page. | `frontend/src/App.tsx`, `frontend/src/pages/NotFoundPage.tsx` |
+
+## Auth and Session Flow
+
+### Session model
+
+The frontend now uses a mixed header-plus-cookie session model.
+
+Current behavior:
+
+- access token is stored in `localStorage` under `access_token`
+- refresh token is intended to live in an HttpOnly cookie managed by the backend
+- `isAdmin` is stored in `localStorage` for UI bootstrapping
+- `withCredentials: true` is enabled for both Axios clients so cookies travel with requests
+
+Source of truth:
+
+- `frontend/src/api/axios.ts`
+- `frontend/src/utils/auth.ts`
+
+### Login flow
+
+1. `LoginPage` reads `next` from the query string and sanitizes it.
+2. On submit, it waits `1000ms` before calling the backend login endpoint.
+3. `loginUser()` calls `POST /api_gateway/v1/users/login/`.
+4. On success, the frontend stores the returned access token and `isAdmin`, then redirects to `next` or `/`.
+
+Source files:
+
+- `frontend/src/pages/LoginPage.tsx`
+- `frontend/src/api/axios.ts`
+- `frontend/src/utils/redirect.ts`
+
+### Protected route flow
+
+`PrivateRoute` blocks `/` until `isAuthenticated()` resolves.
+
+`isAuthenticated()` calls backend token validation, and the route redirects to `/login?next=<current path>` if validation fails.
+
+Source files:
+
+- `frontend/src/routes/PrivateRoute.tsx`
+- `frontend/src/utils/auth.ts`
+- `frontend/src/api/axios.ts`
+- `frontend/src/utils/redirect.ts`
+
+### Refresh flow
+
+The Axios response interceptor retries once on `401`.
+
+Flow:
+
+1. failing request gets `401`
+2. `refreshAccessToken()` calls `POST /api_gateway/v1/users/refresh/`
+3. if refresh succeeds, the new access token is stored in `localStorage`
+4. the original request is replayed
+5. if refresh fails, stored auth is cleared and the browser is redirected to login
+
+Source files:
+
+- `frontend/src/api/axios.ts`
+
+### Cookie-only calls
+
+Some frontend requests intentionally skip the `Authorization` header and rely on cookies:
+
+- `validateToken()`
+- `logoutUser()`
+- `getMe()`
+
+This is important because the backend `/me` and `/validate` endpoints are intended to work from cookies.
+
+Source files:
+
+- `frontend/src/api/axios.ts`
+
+## Frontend Folder Structure
 
 ```text
 frontend/src
-├── api
-│   ├── axios.ts
-│   └── services.ts
-├── features
-│   ├── admin
-│   │   ├── index.ts
-│   │   ├── nginx
-│   │   │   └── components
-│   │   │       └── NginxConfigModal.tsx
-│   │   ├── services
-│   │   │   └── components
-│   │   │       └── ServiceModal.tsx
-│   │   └── users
-│   │       └── components
-│   │           └── UserManager.tsx
-│   ├── dashboard
-│   │   ├── index.ts
-│   │   ├── types.ts
-│   │   └── components
-│   │       ├── DashboardNavbar.tsx
-│   │       ├── DashboardSidebar.tsx
-│   │       └── MobileCategoryTabs.tsx
-│   └── indicators
-│       ├── index.ts
-│       ├── config
-│       │   └── serviceCategories.ts
-│       ├── lib
-│       │   └── serviceHelpers.ts
-│       ├── types
-│       │   └── indicatorService.ts
-│       └── components
-│           ├── IndicatorCard.tsx
-│           ├── IndicatorModuleSection.tsx
-│           └── IndicatorsEmptyState.tsx
-├── pages
-│   ├── DashboardPage.tsx
-│   ├── LoginPage.tsx
-│   └── NotFoundPage.tsx
-├── routes
-│   └── PrivateRoute.tsx
-├── utils
-│   ├── auth.ts
-│   └── redirect.ts
-├── App.tsx
-├── index.css
-└── main.tsx
+|-- api
+|   |-- axios.ts
+|   `-- services.ts
+|-- features
+|   |-- admin
+|   |   |-- index.ts
+|   |   |-- nginx/components/NginxConfigModal.tsx
+|   |   |-- services/components/ServiceModal.tsx
+|   |   `-- users/components/UserManager.tsx
+|   |-- dashboard
+|   |   |-- index.ts
+|   |   |-- types.ts
+|   |   `-- components
+|   |-- indicators
+|   |   |-- index.ts
+|   |   |-- config/serviceCategories.ts
+|   |   |-- lib/serviceHelpers.ts
+|   |   |-- types/indicatorService.ts
+|   |   `-- components
+|-- pages
+|   |-- DashboardPage.tsx
+|   |-- LoginPage.tsx
+|   `-- NotFoundPage.tsx
+|-- routes/PrivateRoute.tsx
+|-- utils
+|   |-- auth.ts
+|   `-- redirect.ts
+|-- App.tsx
+|-- index.css
+`-- main.tsx
 ```
 
-## Architectural Pattern
+## Main Page Responsibilities
 
-The frontend follows a domain-oriented structure.
+### Login page
 
-- `pages` contains route-level screens
-- `features` contains bounded systems grouped by business responsibility
-- `api` contains HTTP integration with backend endpoints
-- `routes` contains route guards
-- `utils` contains shared frontend-only helpers
-
-This means the route component should coordinate systems, but the systems themselves live in `features`.
-
-## Pages
-
-### `DashboardPage`
-
-The dashboard page is the composition layer for the main authenticated experience.
+`frontend/src/pages/LoginPage.tsx`
 
 Responsibilities:
 
-- load and normalize indicators
-- coordinate search state
-- control active module scrolling
-- open and close admin systems
-- pass behavior into dashboard and indicators components
+- render username/password form
+- display login and connectivity errors
+- honor the `next` query parameter
+- perform an auth check on mount
+- redirect immediately if the user is already authenticated
 
-`DashboardPage` should not contain large visual blocks for cards, modules, sidebar, or topbar unless the composition itself requires it.
+### Dashboard page
 
-### `LoginPage`
-
-The login page is its own route-level screen.
+`frontend/src/pages/DashboardPage.tsx`
 
 Responsibilities:
 
-- collect credentials
-- call login API
-- handle redirect-after-login behavior
-- handle destination awareness through `next`
+- fetch service categories and service records
+- fetch `/me` to show username and admin state
+- normalize service data for rendering
+- manage search and category navigation
+- group services by category and favorites
+- open admin tools
+- open selected services in a new tab
 
-### `NotFoundPage`
+Important behaviors:
 
-The 404 page is isolated as a route-level screen and should stay independent from dashboard internals.
+- service cards open `http://${service.srv_ip}` in a new tab
+- services are grouped into a synthetic `Favoritos` section plus database-backed categories
+- the dashboard can open `ServiceModal`, `UserManager`, and `NginxConfigModal`
 
-## User-Facing Systems
+### Not found page
+
+`frontend/src/pages/NotFoundPage.tsx`
+
+Responsibilities:
+
+- isolated 404 route fallback
+
+## User-Facing Feature Systems
 
 ### `features/dashboard`
 
-This feature contains usability and shell components that support navigation inside the dashboard.
+Main files:
 
-Components:
-
-- `DashboardNavbar`
-  - top search bar
-  - user menu
-  - admin actions entry point inside user dropdown
-- `DashboardSidebar`
-  - desktop module navigation
-  - logo area
-  - active category feedback
-- `MobileCategoryTabs`
-  - mobile navigation between modules
-
-This feature should not know how indicators are rendered internally. It only knows about module summaries and navigation state.
-
-### `features/indicators`
-
-This feature contains the actual user-facing indicators system.
-
-Subareas:
-
-- `config/serviceCategories.ts`
-  - source of truth for available categories
-- `types/indicatorService.ts`
-  - indicator data shape
-- `lib/serviceHelpers.ts`
-  - normalization and default indicator helpers
-- `components`
-  - `IndicatorCard`
-  - `IndicatorModuleSection`
-  - `IndicatorsEmptyState`
+- `frontend/src/features/dashboard/components/DashboardNavbar.tsx`
+- `frontend/src/features/dashboard/components/DashboardSidebar.tsx`
+- `frontend/src/features/dashboard/components/MobileCategoryTabs.tsx`
+- `frontend/src/features/dashboard/types.ts`
 
 Responsibilities:
 
-- represent modules and cards
-- render indicators by category
-- keep visual rules for indicator presentation
+- top navigation shell
+- user menu and admin entry points
+- desktop sidebar category navigation
+- mobile category tabs
+- active section state and favorites section ID
 
-This feature should not contain navbar, sidebar, auth logic, or admin orchestration.
+### `features/indicators`
+
+Main files:
+
+- `frontend/src/features/indicators/config/serviceCategories.ts`
+- `frontend/src/features/indicators/lib/serviceHelpers.ts`
+- `frontend/src/features/indicators/types/indicatorService.ts`
+- `frontend/src/features/indicators/components/IndicatorCard.tsx`
+- `frontend/src/features/indicators/components/IndicatorModuleSection.tsx`
+- `frontend/src/features/indicators/components/IndicatorsEmptyState.tsx`
+
+Responsibilities:
+
+- service typing and normalization
+- service category labels
+- card rendering
+- module section rendering
+- empty state rendering
 
 ## Admin Systems
 
-Admin functionality is intentionally separated because each part behaves like a subsystem with its own workflow.
+### Service management
 
-### `features/admin/services`
+Main file:
 
-Contains service administration UI.
+- `frontend/src/features/admin/services/components/ServiceModal.tsx`
 
-- `ServiceModal`
-  - add indicator
-  - edit indicator
-  - remove indicator
-  - edit service-specific nginx blocks
+Capabilities:
 
-### `features/admin/nginx`
+- add service
+- edit service
+- delete service
+- upload service image
+- edit `rt_frontend_block`
+- edit `rt_backend_block`
+- toggle `rt_enabled`
 
-Contains nginx publishing and restore workflow.
+Important NGINX validation shown in the UI:
 
-- `NginxConfigModal`
-  - inspect generated config
-  - copy/download config
-  - publish config
-  - restore previous config
+- frontend block should include `set $service_id <srv_id>;`
+- frontend block should include `auth_request /_auth;`
+- frontend block should include the expected `location <path>`
+- backend block should include `set $service_id <srv_id>;`
+- backend block should include `auth_request /_auth;`
 
-### `features/admin/users`
+The modal does not generate the blocks for the admin; it validates what the admin typed.
 
-Contains user administration workflow.
+### User management
 
-- `UserManager`
-  - list users
-  - create users
-  - edit users
-  - manage service access
-  - delete users
+Main file:
 
-These systems are triggered from the dashboard shell, but they should remain isolated from the user-facing module rendering logic.
+- `frontend/src/features/admin/users/components/UserManager.tsx`
 
-## Data Flow
+Capabilities:
 
-### Auth and route flow
+- list all users
+- create users
+- edit users
+- delete users
+- toggle admin flag
+- toggle "session infinite" which maps to `jwt_expiration = "inf"`
+- assign service access IDs through checkbox selection
 
-- `main.tsx` boots the app
-- `App.tsx` defines routes
-- `PrivateRoute.tsx` protects authenticated routes
-- `LoginPage.tsx` authenticates and redirects
+Behavior notes:
 
-### Dashboard flow
+- bootstraps admin access from `localStorage.isAdmin`
+- calls backend admin endpoints in `frontend/src/api/axios.ts`
+- displays `jwt_expiration === "inf"` as `Infinito`
 
-- `DashboardPage.tsx` fetches indicators from backend
-- data is normalized through `features/indicators/lib/serviceHelpers.ts`
-- categories come from `features/indicators/config/serviceCategories.ts`
-- grouped data is passed to dashboard navigation and indicators modules
+### NGINX operations
 
-### Admin flow
+Main file:
 
-- admin actions start in `DashboardNavbar`
-- page-level state opens the appropriate admin subsystem
-- each admin subsystem owns its own internal interaction flow
+- `frontend/src/features/admin/nginx/components/NginxConfigModal.tsx`
 
-## Visual Design Structure
+Capabilities:
 
-The frontend currently uses a shared visual language.
+- view generated config
+- copy config to clipboard
+- download config as `nginx.conf`
+- publish config
+- restore last successful config
+- show deployment output and warnings returned by the backend
 
-Core visual traits:
+## API Dependency Map
 
-- teal brand color around `#2e7675`
-- soft neutral background for app surfaces
-- white cards for content and actions
-- rounded corners with high radius
-- compact shadows rather than heavy glass/transparency
-- sticky shell elements for navigation
+### Auth and user endpoints
 
-### Shell design
+| Frontend function | Backend endpoint | Purpose | Source files |
+| --- | --- | --- | --- |
+| `loginUser()` | `POST /api_gateway/v1/users/login/` | login | `frontend/src/api/axios.ts`, `frontend/src/pages/LoginPage.tsx` |
+| `validateToken()` | `GET /api_gateway/v1/users/validate` | auth check for route guard and startup | `frontend/src/api/axios.ts`, `frontend/src/utils/auth.ts`, `frontend/src/routes/PrivateRoute.tsx` |
+| `logoutUser()` | `GET /api_gateway/v1/users/logout` | logout and cookie clear | `frontend/src/api/axios.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `getMe()` | `GET /api_gateway/v1/users/me/` | fetch username and admin state | `frontend/src/api/axios.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| internal refresh helper | `POST /api_gateway/v1/users/refresh/` | refresh access token after `401` | `frontend/src/api/axios.ts` |
+| `getAllUsersAdmin()` | `GET /api_gateway/v1/users/admin/` | list users | `frontend/src/api/axios.ts`, `frontend/src/features/admin/users/components/UserManager.tsx` |
+| `createUserAdmin()` | `POST /api_gateway/v1/users/admin/` | create user | `frontend/src/api/axios.ts`, `frontend/src/features/admin/users/components/UserManager.tsx` |
+| `getUserDetailsAdmin()` | `GET /api_gateway/v1/users/admin/<id>/` | fetch single user | `frontend/src/api/axios.ts` |
+| `updateUserAdmin()` | `PUT /api_gateway/v1/users/admin/<id>/` | update user | `frontend/src/api/axios.ts`, `frontend/src/features/admin/users/components/UserManager.tsx` |
+| `deleteUserAdmin()` | `DELETE /api_gateway/v1/users/admin/<id>/` | delete user | `frontend/src/api/axios.ts`, `frontend/src/features/admin/users/components/UserManager.tsx` |
+| `getAllServicesForAdmin()` | `GET /api_gateway/v1/users/admin/services/all/` | fetch service checklist for user manager | `frontend/src/api/axios.ts`, `frontend/src/features/admin/users/components/UserManager.tsx` |
 
-- sidebar is desktop-only and acts as module navigation
-- topbar is sticky and becomes more compact on scroll
-- mobile uses category tabs instead of sidebar
+### Service and NGINX endpoints
 
-### Indicators design
+| Frontend function | Backend endpoint | Purpose | Source files |
+| --- | --- | --- | --- |
+| `getServices()` | `GET /api_gateway/v1/services/` | list user-visible services | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `getServiceCategories()` | `GET /api_gateway/v1/services/categories/` | list categories | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `addService()` | `POST /api_gateway/v1/services/` | create service | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `updateService()` | `PUT /api_gateway/v1/services/<id>` | update service | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `deleteService()` | `DELETE /api_gateway/v1/services/<id>` | delete service | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `addServiceFavorite()` | `POST /api_gateway/v1/services/<id>/favorite` | add favorite | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `removeServiceFavorite()` | `DELETE /api_gateway/v1/services/<id>/favorite` | remove favorite | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `getNginxConfig()` | `GET /api_gateway/v1/nginx/config/` | preview generated config | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `deployNginxConfig()` | `POST /api_gateway/v1/nginx/deploy/` | publish config | `frontend/src/api/services.ts`, `frontend/src/features/admin/nginx/components/NginxConfigModal.tsx` |
+| `restoreNginxConfig()` | `POST /api_gateway/v1/nginx/restore/` | restore last successful config | `frontend/src/api/services.ts`, `frontend/src/features/admin/nginx/components/NginxConfigModal.tsx` |
 
-- modules are rendered as vertical sections
-- each module contains a title, count, and grid of cards
-- cards show image, name, description, and target address
+## UI Timings and Motion Logic
 
-### Admin design
+- login submit delay: `1000ms` in `frontend/src/pages/LoginPage.tsx`
+- NGINX copy confirmation reset: `2000ms` in `frontend/src/features/admin/nginx/components/NginxConfigModal.tsx`
+- dashboard card scroll target offset: `108px` in `frontend/src/pages/DashboardPage.tsx`
+- active section detection offset: current scroll plus `200px` in `frontend/src/pages/DashboardPage.tsx`
+- navbar condenses after scroll reaches `64px` and resets when scroll is `8px` or lower in `frontend/src/pages/DashboardPage.tsx`
 
-- admin systems use modal overlays
-- each admin subsystem keeps its own internal layout and actions
+## Visual Structure
 
-## Asset Naming Convention
+The current frontend visual language is centered around:
 
-Public logo assets now follow explicit names.
+- teal brand color near `#2e7675`
+- pale green-gray background surfaces
+- rounded white cards and modals
+- sticky shell navigation
+- soft gradients and grid textures
 
-- `logo-colored.webp`
-  - colored symbol-only logo
-  - previous name: `s-i2.webp`
-- `logo-white.webp`
-  - pure white symbol-only logo
-  - previous name: `s-i.webp`
-- `logo-white-with-name.webp`
-  - pure white logo with company name on the side
-  - previous name: `s-b.webp`
+Primary implementation files:
 
-Usage rules:
+- `frontend/src/pages/LoginPage.tsx`
+- `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/index.css`
 
-- use `logo-white.webp` on dark backgrounds
-- use `logo-colored.webp` on light backgrounds when only the symbol is needed
-- use `logo-white-with-name.webp` when the full brand signature is needed on dark surfaces
+## Public Assets and Runtime Files
 
-## Maintenance Rules
+- `frontend/public/logo-colored.webp`
+  - light-surface symbol logo
+- `frontend/public/logo-white.webp`
+  - white symbol logo
+- `frontend/public/logo-white-with-name.webp`
+  - white full logo used in the login page
+- `frontend/default.conf`
+  - static NGINX config for serving the SPA with `try_files $uri /index.html`
+- `frontend/package.json`
+  - Vite scripts: `dev`, `build`, `lint`, `preview`
 
-When adding new frontend work:
+## Where To Edit Specific Behavior
 
-- route-level concerns belong in `pages`
-- navigation and shell concerns belong in `features/dashboard`
-- indicator rendering and category logic belong in `features/indicators`
-- admin workflows belong in the appropriate `features/admin/*` subsystem
-- shared backend access stays in `api` unless a feature-specific API layer becomes necessary
+- change route map: `frontend/src/App.tsx`
+- change login screen behavior or copy: `frontend/src/pages/LoginPage.tsx`
+- change dashboard composition, service loading, favorites, or admin modal wiring: `frontend/src/pages/DashboardPage.tsx`
+- change route guard behavior: `frontend/src/routes/PrivateRoute.tsx`
+- change auth check helper: `frontend/src/utils/auth.ts`
+- change login redirect and `next` sanitization: `frontend/src/utils/redirect.ts`
+- change Axios auth, refresh, and redirect behavior: `frontend/src/api/axios.ts`
+- change service and NGINX backend calls: `frontend/src/api/services.ts`
+- change dashboard shell and admin dropdown: `frontend/src/features/dashboard/components/DashboardNavbar.tsx`
+- change sidebar navigation: `frontend/src/features/dashboard/components/DashboardSidebar.tsx`
+- change mobile category tabs: `frontend/src/features/dashboard/components/MobileCategoryTabs.tsx`
+- change service typing and normalization: `frontend/src/features/indicators/types/indicatorService.ts`, `frontend/src/features/indicators/lib/serviceHelpers.ts`
+- change category definitions: `frontend/src/features/indicators/config/serviceCategories.ts`
+- change service card rendering: `frontend/src/features/indicators/components/IndicatorCard.tsx`
+- change service module rendering: `frontend/src/features/indicators/components/IndicatorModuleSection.tsx`
+- change empty state: `frontend/src/features/indicators/components/IndicatorsEmptyState.tsx`
+- change service admin modal and NGINX block checks: `frontend/src/features/admin/services/components/ServiceModal.tsx`
+- change user management UI: `frontend/src/features/admin/users/components/UserManager.tsx`
+- change NGINX preview/deploy/restore UI: `frontend/src/features/admin/nginx/components/NginxConfigModal.tsx`
 
-Avoid reintroducing large all-in-one page files when a component clearly belongs to one of these domains.
+## Notes For Future Agents
+
+- The frontend depends on backend cookies being present because `/me`, `/validate`, and refresh are designed to work from cookies.
+- `localStorage.refresh_token` is no longer the active refresh mechanism; the code keeps the key constant but clears it instead of using it.
+- Admin UI bootstrapping still reads `localStorage.isAdmin` before `/me` fully resolves, so UI state and backend truth can temporarily diverge during startup.
+- Service links are opened as `http://` plus the stored `srv_ip`, so the service record effectively controls the target URL.
