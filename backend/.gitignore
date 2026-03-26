@@ -99,6 +99,7 @@ celerybeat-schedule.*
 
 # Environments 
 .env 
+nginx/header.local.conf
 .venv 
 env/ 
 venv/ 

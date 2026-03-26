@@ -49,9 +49,9 @@ Source of truth for the gateway flow:
 - `backend/nginx/builder.py`
   - generate, deploy, and restore NGINX config
 - `backend/nginx/nginx_builder.py`
-  - concatenates header, service blocks, and footer
+  - injects generated service blocks into the header template
 - `backend/nginx/reference.py`
-  - default gateway header/footer templates
+  - loads the machine-local or example header template
 - `backend/infrastructure/managers.py`
   - SSH connection and remote `nginx -t` execution
 - `backend/workorders/views.py`
@@ -178,7 +178,7 @@ Cookie names are configurable:
 - PostgreSQL connection timeout: `5` seconds default in `backend/utils/database.py`
 - SSH connect timeout: `15` seconds in `backend/infrastructure/managers.py`
 - DB proxy request timeout for work orders: `30` seconds in `backend/workorders/services.py`
-- NGINX proxy timeouts in the default template: `proxy_connect_timeout 300s`, `proxy_send_timeout 300s`, `proxy_read_timeout 300s`, `send_timeout 300s` in `backend/nginx/reference.py`
+- NGINX proxy timeouts in the example header template: `proxy_connect_timeout 300s`, `proxy_send_timeout 300s`, `proxy_read_timeout 300s`, `send_timeout 300s` in `backend/nginx/header.example.conf`
 - work-order desired completion date offset: `+2` days in `backend/workorders/views.py`
 
 ## Endpoint Catalog
@@ -233,7 +233,7 @@ Important service fields:
 
 | Method | Path | Auth | What it does | Source files |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api_gateway/v1/nginx/config/` | admin | Reads enabled service blocks from the database, merges them with header and footer, and returns the generated config text. Optional query params: `header`, `footer`. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/nginx/nginx_builder.py`, `backend/nginx/reference.py` |
+| `GET` | `/api_gateway/v1/nginx/config/` | admin | Reads service blocks from the database, merges them into the header template, and returns the generated config text. Optional query param: `header` for override. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/nginx/nginx_builder.py`, `backend/nginx/reference.py` |
 | `POST` | `/api_gateway/v1/nginx/deploy/` | admin | Inserts a pending record into `services_conf_log`, pushes the config over SSH, runs `nginx -t`, and updates the log status. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 | `POST` | `/api_gateway/v1/nginx/restore/` | admin | Restores the latest successful config from `services_conf_log` and redeploys it over SSH. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 
@@ -277,16 +277,21 @@ They exist because `rest_framework_simplejwt` is registered, but the portal logi
 
 ## NGINX Config Generation Model
 
-The generated config is assembled from three pieces:
+The generated config is assembled from two pieces:
 
-1. Header template from `backend/nginx/reference.py`
+1. Header template loaded from `backend/nginx/header.local.conf`
 2. Per-service frontend and backend blocks stored in `services_info`
-3. Footer template from `backend/nginx/reference.py`
+
+Fallback behavior:
+
+- if `backend/nginx/header.local.conf` does not exist, the backend falls back to `backend/nginx/header.example.conf`
 
 Generation logic:
 
-- fetches only `rt_enabled = true` services in `backend/nginx/builder.py`
-- `backend/nginx/nginx_builder.py` skips disabled services again as a second guard
+- the header template should contain `{{SYSTEM_GENERATED_PATHS}}`
+- `backend/nginx/reference.py` loads the header text from file
+- `backend/nginx/builder.py` loads service records ordered by `srv_id`
+- `backend/nginx/nginx_builder.py` replaces the placeholder with the generated per-service blocks
 - frontend block is emitted first
 - backend block is emitted immediately after that service's frontend block
 
@@ -298,6 +303,7 @@ Service authorship model:
 
 Reference examples:
 
+- `backend/nginx/header.example.conf`
 - `backend/nginx/reference.py`
 - `extra/api-gateway.conf`
 - `extra/example.conf`
@@ -347,7 +353,9 @@ Observed columns used directly in code include:
 - change login, refresh, validate, `/me`, or admin user logic: `backend/users/views.py`
 - change service listing or service CRUD rules: `backend/services/views.py`
 - change category parsing or favorites behavior: `backend/services/views.py`
-- change NGINX default header/footer template: `backend/nginx/reference.py`
+- change NGINX header template loading: `backend/nginx/reference.py`
+- change the tracked example template: `backend/nginx/header.example.conf`
+- change the machine-local template on one machine: `backend/nginx/header.local.conf`
 - change config concatenation rules: `backend/nginx/nginx_builder.py`
 - change deploy/restore flow: `backend/nginx/builder.py`
 - change SSH execution details: `backend/infrastructure/managers.py`

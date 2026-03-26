@@ -11,7 +11,7 @@ import logging
 from utils.database import get_db_connection
 from utils.jwt import get_admin_user_from_token
 
-from .reference import HEADER_DEFAULT, FOOTER_DEFAULT
+from .reference import load_header_template
 from .nginx_builder import NginxConfigBuilder
 from infrastructure.managers import SshManager
 
@@ -53,13 +53,6 @@ class NginxConfigGeneratorView(APIView):
             
             result = cur.fetchall()
             
-            if not result:
-                logger.warning("No enabled services found for nginx configuration")
-                return Response(
-                    {"detail": "No enabled services found"},
-                    status=status.HTTP_204_NO_CONTENT
-                )
-            
             logger.debug(f"Retrieved {len(result)} services from database")
             services_data = [
                 {
@@ -71,15 +64,13 @@ class NginxConfigGeneratorView(APIView):
                 }
                 for row in result
             ]
-            
-            header = request.query_params.get('header', HEADER_DEFAULT)
-            footer = request.query_params.get('footer', FOOTER_DEFAULT)
-            
+             
+            header = request.query_params.get('header') or load_header_template()
+             
             logger.debug(f"Building nginx config with {len(services_data)} services")
             nginx_config = NginxConfigBuilder.build_nginx_config(
                 services_data=services_data,
                 header=header,
-                footer=footer,
             )
             
             logger.info(f"Nginx configuration generated successfully with {len(services_data)} services")
