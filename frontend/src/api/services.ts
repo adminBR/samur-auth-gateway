@@ -6,6 +6,11 @@ interface ApiListResponse<T> {
   content: T[];
 }
 
+interface NextServiceIdResponse {
+  message: string;
+  next_service_id: number;
+}
+
 export const getServices = async () => {
   const res = await api.get("api_gateway/v1/services/");
   return res.data;
@@ -20,6 +25,11 @@ export const getServiceCategories = async (): Promise<
 
 export const addService = async (formData: FormData) => {
   const res = await api.post("api_gateway/v1/services/", formData);
+  return res.data;
+};
+
+export const getNextServiceId = async (): Promise<NextServiceIdResponse> => {
+  const res = await api.get("api_gateway/v1/services/next-id/");
   return res.data;
 };
 

@@ -243,6 +243,8 @@ Capabilities:
 - edit `rt_frontend_block`
 - edit `rt_backend_block`
 - toggle `rt_enabled`
+- show both NGINX editors at all times inside the service modal
+- prefill both NGINX editors with reference text using the predicted service ID on create
 
 Important NGINX validation shown in the UI:
 
@@ -251,6 +253,10 @@ Important NGINX validation shown in the UI:
 - frontend block should include the expected `location <path>`
 - backend block should include `set $service_id <srv_id>;`
 - backend block should include `auth_request /_auth;`
+
+Create-mode note:
+
+- when a new service is being added, the modal requests `GET /api_gateway/v1/services/next-id/` and uses that predicted value both to prefill the frontend/backend NGINX textareas and to validate the `set $service_id ...;` lines
 
 The modal does not generate the blocks for the admin; it validates what the admin typed.
 
@@ -315,6 +321,7 @@ Capabilities:
 | --- | --- | --- | --- |
 | `getServices()` | `GET /api_gateway/v1/services/` | list user-visible services | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
 | `getServiceCategories()` | `GET /api_gateway/v1/services/categories/` | list categories | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
+| `getNextServiceId()` | `GET /api_gateway/v1/services/next-id/` | fetch highest current service ID plus one for create-mode NGINX guidance | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
 | `addService()` | `POST /api_gateway/v1/services/` | create service | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
 | `updateService()` | `PUT /api_gateway/v1/services/<id>` | update service | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |
 | `deleteService()` | `DELETE /api_gateway/v1/services/<id>` | delete service | `frontend/src/api/services.ts`, `frontend/src/pages/DashboardPage.tsx` |

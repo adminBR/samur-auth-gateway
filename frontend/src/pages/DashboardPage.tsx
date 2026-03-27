@@ -5,6 +5,7 @@ import {
   addServiceFavorite,
   deleteService,
   getNginxConfig,
+  getNextServiceId,
   getServiceCategories,
   getServices,
   removeServiceFavorite,
@@ -47,6 +48,9 @@ export default function DashboardPage() {
   const [isNginxLoading, setIsNginxLoading] = useState<boolean>(false);
   const [currentService, setCurrentService] =
     useState<EditableIndicatorService>(buildDefaultIndicator());
+  const [predictedServiceId, setPredictedServiceId] = useState<number | null>(
+    null,
+  );
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -235,6 +239,7 @@ export default function DashboardPage() {
     service: IndicatorService,
   ) => {
     event.stopPropagation();
+    setPredictedServiceId(null);
     setCurrentService(service);
     setPreviewImage(null);
     setSelectedFile(null);
@@ -242,16 +247,32 @@ export default function DashboardPage() {
     setModalOpen(true);
   };
 
-  const handleOpenAddModal = () => {
+  const getFallbackNextServiceId = () =>
+    services.reduce(
+      (highestId, service) => Math.max(highestId, service.srv_id),
+      0,
+    ) + 1;
+
+  const handleOpenAddModal = async () => {
     setIsEditMode(false);
     const nextCategory =
       typeof activeCategory === "number"
         ? activeCategory
         : (categories[0]?.value ?? 0);
+    const fallbackNextId = getFallbackNextServiceId();
+    setPredictedServiceId(fallbackNextId);
     setCurrentService(buildDefaultIndicator(nextCategory));
     setPreviewImage(null);
     setSelectedFile(null);
     setModalOpen(true);
+
+    try {
+      const response = await getNextServiceId();
+      setPredictedServiceId(response.next_service_id ?? fallbackNextId);
+    } catch (error) {
+      console.error("Error fetching next service id:", error);
+      setPredictedServiceId(fallbackNextId);
+    }
   };
 
   const handleToggleFavorite = async (service: IndicatorService) => {
@@ -283,6 +304,7 @@ export default function DashboardPage() {
 
   const handleCloseModal = () => {
     setModalOpen(false);
+    setPredictedServiceId(null);
     setPreviewImage(null);
     setSelectedFile(null);
   };
@@ -504,6 +526,7 @@ export default function DashboardPage() {
         onClose={handleCloseModal}
         previewImage={previewImage}
         onFileSelect={handleFileSelect}
+        predictedServiceId={predictedServiceId}
       />
 
       {userManager && <UserManager onClose={() => setUserManager(false)} />}

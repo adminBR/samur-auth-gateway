@@ -210,6 +210,7 @@ Notes:
 | Method | Path | Auth | What it does | Source files |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api_gateway/v1/services/` | authenticated | Lists only the services present in the requesting user's `usr_access`. Includes image, name, IP, description, category, NGINX blocks, enabled flag, and favorite state. | `backend/services/urls.py`, `backend/services/views.py` |
+| `GET` | `/api_gateway/v1/services/next-id/` | admin | Returns the predicted next service ID as `MAX(srv_id) + 1` for the frontend service editor reference snippets and validation. | `backend/services/urls.py`, `backend/services/views.py` |
 | `POST` | `/api_gateway/v1/services/` | admin | Creates a service in `services_info`, stores image bytes, category, frontend/backend NGINX blocks, and enabled state. Also appends the new service ID to the creating admin's `usr_access`. | `backend/services/urls.py`, `backend/services/views.py` |
 | `GET` | `/api_gateway/v1/services/categories/` | authenticated | Lists `services_category` records. | `backend/services/urls.py`, `backend/services/views.py` |
 | `POST` | `/api_gateway/v1/services/<service_id>/favorite` | authenticated | Marks a service as favorite for the current user if the user has access to it. | `backend/services/urls.py`, `backend/services/views.py` |
@@ -300,6 +301,7 @@ Service authorship model:
 - a service record stores its own NGINX frontend block
 - the same service record stores its own NGINX backend/API block
 - the service ID is expected to match the `set $service_id ...;` lines used by `auth_request`
+- the admin frontend now fetches `/api_gateway/v1/services/next-id/` while creating a new service so it can validate against a predicted `set $service_id ...;` line before the row exists
 
 Reference examples:
 

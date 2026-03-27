@@ -147,6 +147,12 @@ def service_exists(cur, service_id: int) -> bool:
     return cur.fetchone() is not None
 
 
+def fetch_next_service_id(cur) -> int:
+    cur.execute("SELECT COALESCE(MAX(srv_id), 0) + 1 FROM services_info")
+    result = cur.fetchone()
+    return int(result[0]) if result and result[0] is not None else 1
+
+
 class ServiceCategoriesManager(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -252,6 +258,45 @@ class ServiceFavoriteManager(APIView):
                 "Error removing favorite service_id=%s for user_id=%s",
                 service_id,
                 user_id,
+                exc_info=True,
+            )
+            raise
+        finally:
+            cur.close()
+            conn.close()
+
+
+class ServiceNextIdManager(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request):
+        try:
+            get_admin_user_from_token(request)
+        except APIException as e:
+            logger.warning(
+                "Admin authentication failed for next service id lookup: %s",
+                e.detail,
+            )
+            return Response({"detail": e.detail}, status=e.status_code)
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            next_service_id = fetch_next_service_id(cur)
+            logger.info(
+                "Resolved next service id=%s for user_id=%s",
+                next_service_id,
+                request.user.id,
+            )
+            return Response(
+                {"message": "success", "next_service_id": next_service_id},
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            logger.error(
+                "Error resolving next service id for user_id=%s: %s",
+                request.user.id,
+                str(e),
                 exc_info=True,
             )
             raise
