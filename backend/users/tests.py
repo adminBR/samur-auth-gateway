@@ -80,3 +80,29 @@ class AuthFlowTests(SimpleTestCase):
 
         self.assertEqual(user.id, 99)
         self.assertEqual(user.username, "cookie-auth")
+
+    def test_validate_endpoint_returns_401_when_no_token_is_provided(self):
+        response = self.client.get("/api_gateway/v1/users/validate")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["detail"], "No token provided")
+
+    @patch("users.views.get_db_connection")
+    def test_validate_endpoint_returns_403_when_user_lacks_service_access(
+        self,
+        mock_get_db_connection,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.return_value = ("2,3",)
+
+        access_token = create_access_token(7, "blocked-user", "1")
+        self.client.cookies[settings.AUTH_ACCESS_TOKEN_COOKIE_NAME] = access_token
+
+        response = self.client.get(
+            "/api_gateway/v1/users/validate",
+            HTTP_X_SERVICE_ID="9",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["detail"], "Access denied to this service")

@@ -211,7 +211,7 @@ class ValidateToken(APIView):
                     if service_id not in allowed_services:
                         logger.warning(f"Token validation failed: Access denied - user_id: {user_id}, service_id: {service_id}")
                         return Response({"detail": "Access denied to this service"},
-                                        status=status.HTTP_401_UNAUTHORIZED)
+                                        status=status.HTTP_403_FORBIDDEN)
                     logger.debug(f"Token validation successful for user_id: {user_id}, service_id: {service_id}")
                 except psycopg2.Error as e:
                     logger.error(f"Database error during token validation: {str(e)}", exc_info=True)
