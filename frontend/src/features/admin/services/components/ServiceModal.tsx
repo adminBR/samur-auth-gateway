@@ -76,7 +76,10 @@ export default function ServiceModal({
     : predictedServiceId;
   const expectedServiceIdLine =
     resolvedServiceId !== null ? `set $service_id ${resolvedServiceId};` : null;
-  const rawPath = service.srv_ip.replace("indicadores.samur.br", "").trim();
+  const normalizedTarget = service.srv_ip.trim();
+  const firstSlashIndex = normalizedTarget.indexOf("/");
+  const rawPath =
+    firstSlashIndex >= 0 ? normalizedTarget.slice(firstSlashIndex).trim() : "";
   const expectedFrontendLocation = rawPath
     ? `location ${rawPath.startsWith("/") ? rawPath : `/${rawPath}`}`
     : null;
