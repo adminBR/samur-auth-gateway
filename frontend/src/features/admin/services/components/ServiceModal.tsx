@@ -26,7 +26,8 @@ const buildFrontendReferenceBlock = (
         auth_request /_auth;
 
         # We redirect pages directly to login
-        error_page 401 = @redirect_login;
+        error_page 401 = @api_err401; 
+        error_page 403 = @api_err403;
 
         proxy_pass http://server_address:8000/;
         proxy_http_version 1.1;
@@ -39,7 +40,8 @@ const buildBackendReferenceBlock = (
         auth_request /_auth;
 
         # We return JSON 401 for APIs so frontend fetch requests don't fail parsing HTML
-        error_page 401 = @api_err401;
+        error_page 401 = @api_err401; 
+        error_page 403 = @api_err403;
 
         proxy_pass http://server_address:8001/;
         proxy_http_version 1.1;

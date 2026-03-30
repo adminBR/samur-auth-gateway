@@ -9,6 +9,7 @@ import psycopg2
 import logging
 
 from utils.database import get_db_connection
+from utils.env import env, env_int
 from utils.jwt import get_admin_user_from_token
 
 from .reference import load_header_template
@@ -18,10 +19,11 @@ from infrastructure.managers import SshManager
 logger = logging.getLogger(__name__)
 
 
-SSH_HOST = "192.168.2.131"
-SSH_PORT = 22
-SSH_USER = "luis"
-SSH_PASSWORD = "123Mudar"
+SSH_HOST = env("NGINX_SSH_HOST", "") or ""
+SSH_PORT = env_int("NGINX_SSH_PORT", 22)
+SSH_USER = env("NGINX_SSH_USER", "") or ""
+SSH_PASSWORD = env("NGINX_SSH_PASSWORD", "") or ""
+SSH_KEY_PATH = env("NGINX_SSH_KEY_PATH", "") or ""
 
 class NginxConfigGeneratorView(APIView):
     """Generate nginx configuration from services."""
@@ -93,7 +95,7 @@ class NginxConfigGeneratorView(APIView):
 
 class NginxConfigDeployView(APIView):
     permission_classes = [IsAuthenticated]
-    REMOTE_CONFIG_PATH = "/etc/nginx/sites-available/api-gateway.conf"
+    REMOTE_CONFIG_PATH = "/etc/nginx/sites-available/auth-gateway.conf"
 
     def post(self, request: Request):
         try:
@@ -106,7 +108,7 @@ class NginxConfigDeployView(APIView):
         ssh_host = SSH_HOST
         ssh_username = SSH_USER
         ssh_password = SSH_PASSWORD
-        ssh_key_path = None
+        ssh_key_path = SSH_KEY_PATH or None
         ssh_port = SSH_PORT
 
         try:
@@ -190,7 +192,7 @@ class NginxConfigRestoreView(APIView):
         ssh_host = SSH_HOST
         ssh_username = SSH_USER
         ssh_password = SSH_PASSWORD
-        ssh_key_path = None
+        ssh_key_path = SSH_KEY_PATH or None
         ssh_port = SSH_PORT
         try:
             ssh_port = int(ssh_port)
