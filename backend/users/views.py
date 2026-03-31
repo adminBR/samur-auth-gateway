@@ -168,7 +168,7 @@ class UserLogout(APIView):
         clear_auth_cookies(response)
         return response
 
-        
+
 class ValidateToken(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -221,9 +221,14 @@ class ValidateToken(APIView):
                     conn.close()
 
             logger.info(f"Token validated successfully for user_id: {user_id}")
-            return Response({"user_id": payload["user_id"],
-                             "user_name": payload["user_name"]},
-                            status=status.HTTP_200_OK)
+            response = Response(
+                {"user_id": payload["user_id"], "user_name": payload["user_name"]},
+                status=status.HTTP_200_OK
+            )
+            # Add custom headers for Nginx to consume
+            response["X-User-Id"] = payload["user_id"]
+            response["X-User-Name"] = payload.get("user_name", "unknown")
+            return response
         except jwt.ExpiredSignatureError:
             logger.warning("Token validation failed: Token signature expired")
             return Response({"detail":"Token expired"},
