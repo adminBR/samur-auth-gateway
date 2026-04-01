@@ -25,12 +25,18 @@ const buildFrontendReferenceBlock = (
         set $service_id ${serviceId};
         auth_request /_auth;
 
+         # ---CAPTURING DJANGO'S HEADERS ---
+        auth_request_set $auth_user_id $upstream_http_x_user_id;
+        auth_request_set $auth_user_name $upstream_http_x_user_name;
+
         # We redirect pages directly to login
         error_page 401 = @api_err401; 
         error_page 403 = @api_err403;
 
         proxy_pass http://server_address:8000/;
         proxy_http_version 1.1;
+
+        access_log /var/log/nginx/gateway_traffic.log gateway_json;
     }`;
 
 const buildBackendReferenceBlock = (
