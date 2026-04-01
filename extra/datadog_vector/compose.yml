@@ -1,0 +1,10 @@
+services:
+  vector:
+    # Change this line to grab a version that includes the Postgres sink
+    image: timberio/vector:latest-alpine
+    container_name: vector
+    restart: unless-stopped
+    volumes:
+      - /var/log/nginx:/var/log/nginx:ro
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - ./vector-data:/var/lib/vector

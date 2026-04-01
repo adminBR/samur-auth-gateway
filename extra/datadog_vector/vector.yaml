@@ -1,0 +1,55 @@
+# ----------------------------------------------------------------------------
+# GLOBAL SETTINGS
+# ----------------------------------------------------------------------------
+data_dir: "/var/lib/vector"
+
+# ----------------------------------------------------------------------------
+# SOURCES (Must be at the far left, no spaces)
+# ----------------------------------------------------------------------------
+sources:
+  nginx_gateway_logs:
+    type: "file"
+    include:
+      - "/var/log/nginx/gateway_traffic.log"
+    read_from: "beginning"
+
+# ----------------------------------------------------------------------------
+# TRANSFORMS (Must be at the far left, no spaces)
+# ----------------------------------------------------------------------------
+transforms:
+  parse_and_format_json:
+    type: "remap"
+    inputs:
+      - "nginx_gateway_logs"
+    source: |
+      parsed, err = parse_json(.message)
+
+      if err == null {
+          # Clear the event to ensure we only send exactly what the DB expects
+          . = {} 
+
+          # VRL handles missing keys by returning null automatically, 
+          # so we don't need '?? null' on simple assignments.
+          .request_time = parse_timestamp(parsed.time_local, format: "%Y-%m-%dT%H:%M:%S%:z") ?? now()
+          .user_id = parsed.user_id
+          .user_name = parsed.user_name
+          .service_id = to_int(parsed.service_id) ?? null
+          .request_method = parsed.request_method
+          .request_uri = parsed.request_uri
+          .status = to_int(parsed.status) ?? null
+          .backend_time = to_float(parsed.backend_time) ?? 0.0
+          .client_ip = parsed.client_ip
+      } else {
+          abort
+      }
+
+# ----------------------------------------------------------------------------
+# SINKS (Must be at the far left, no spaces)
+# ----------------------------------------------------------------------------
+sinks:
+  postgres_database:
+    type: "postgres"
+    inputs:
+      - "parse_and_format_json"
+    endpoint: "postgresql://postgres:postgres@192.168.1.16:5432/auth_gateway"
+    table: "raw_api_access_logs_teste"
