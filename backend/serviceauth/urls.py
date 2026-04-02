@@ -31,6 +31,7 @@ urlpatterns = [
     path('api_gateway/v1/services/', include('services.urls')),
     path('api_gateway/v1/nginx/', include('nginx.urls')),
     path('api_gateway/v1/workorders/', include('workorders.urls')),
+    path('api_gateway/v1/analytics/', include('analytics.urls')),
     
     path('api_gateway/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api_gateway/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

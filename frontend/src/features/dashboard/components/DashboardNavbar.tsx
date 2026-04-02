@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  BarChart3,
   ChevronDown,
   LoaderCircle,
   LogOut,
@@ -20,6 +21,7 @@ export interface DashboardNavbarProps {
   onAddService: () => void;
   onManageUsers: () => void;
   onViewNginxConfig: () => void;
+  onViewAnalytics: () => void;
   isAddLoading: boolean;
   isCondensed?: boolean;
 }
@@ -33,6 +35,7 @@ export function DashboardNavbar({
   onAddService,
   onManageUsers,
   onViewNginxConfig,
+  onViewAnalytics,
   isAddLoading,
   isCondensed = false,
 }: DashboardNavbarProps) {
@@ -153,7 +156,7 @@ export function DashboardNavbar({
                   {userName || "Usuario"}
                 </p>
                 <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-gray-500">
-                  {isAdmin ? "Administrador" : "Acesso padrao"}
+                  {isAdmin ? "Administrador" : "Padrão"}
                 </p>
               </div>
               {!isCondensed && (
@@ -210,6 +213,16 @@ export function DashboardNavbar({
                       >
                         <Users className="h-4 w-4" />
                         Gerenciar usuarios
+                      </button>
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          onViewAnalytics();
+                        }}
+                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-[13px] font-medium text-gray-700 transition-colors hover:bg-[#2e7675]/6 hover:text-[#2e7675]"
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        Analytics
                       </button>
                       <button
                         onClick={() => {

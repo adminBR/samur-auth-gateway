@@ -1,6 +1,7 @@
 // src/App.tsx
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
+import AuthAnalyticsPage from "./pages/AuthAnalyticsPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import PrivateRoute from "./routes/PrivateRoute";
@@ -16,6 +17,14 @@ function App() {
             element={
               <PrivateRoute>
                 <DashboardPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/auth-analytics"
+            element={
+              <PrivateRoute>
+                <AuthAnalyticsPage />
               </PrivateRoute>
             }
           />

@@ -462,6 +462,7 @@ export default function DashboardPage() {
             onAddService={handleOpenAddModal}
             onManageUsers={() => setUserManager((prev) => !prev)}
             onViewNginxConfig={handleViewNginxConfig}
+            onViewAnalytics={() => navigate("/auth-analytics")}
             isAddLoading={isLoading}
             isCondensed={isNavbarCondensed}
           />
