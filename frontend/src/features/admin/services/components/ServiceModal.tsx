@@ -23,28 +23,18 @@ const buildFrontendReferenceBlock = (
   serviceId: number | string,
 ) => `location /novo_caminho/ {
         set $service_id ${serviceId};
-        auth_request /_auth;
-
-         # ---CAPTURING DJANGO'S HEADERS ---
-        auth_request_set $auth_user_id $upstream_http_x_user_id;
-        auth_request_set $auth_user_name $upstream_http_x_user_name;
-
         # We redirect pages directly to login
         error_page 401 = @api_err401; 
         error_page 403 = @api_err403;
 
         proxy_pass http://server_address:8000/;
         proxy_http_version 1.1;
-
-        access_log /var/log/nginx/gateway_traffic.log gateway_json;
     }`;
 
 const buildBackendReferenceBlock = (
   serviceId: number | string,
-) => `location /api/novo_caminho/ {
+) => `location /novo_caminho_API/ {
         set $service_id ${serviceId};
-        auth_request /_auth;
-
         # We return JSON 401 for APIs so frontend fetch requests don't fail parsing HTML
         error_page 401 = @api_err401; 
         error_page 403 = @api_err403;
