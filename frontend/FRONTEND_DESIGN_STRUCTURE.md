@@ -10,13 +10,17 @@ It does three main jobs:
 2. Shows the list of internal services the current user may open.
 3. Gives admins UI tools for user management, service management, and NGINX config publishing.
 
+It also includes an admin-only access analytics page for hourly auth-gateway log visualization.
+
 Primary source files:
 
 - `frontend/src/App.tsx`
 - `frontend/src/pages/LoginPage.tsx`
 - `frontend/src/pages/DashboardPage.tsx`
+- `frontend/src/pages/AuthAnalyticsPage.tsx`
 - `frontend/src/api/axios.ts`
 - `frontend/src/api/services.ts`
+- `frontend/src/api/analytics.ts`
 
 ## Runtime Entry Points
 
@@ -34,6 +38,7 @@ Primary source files:
 | --- | --- | --- |
 | `/login` | Login page with optional `next` redirect target. | `frontend/src/App.tsx`, `frontend/src/pages/LoginPage.tsx`, `frontend/src/utils/redirect.ts` |
 | `/` | Main authenticated dashboard. Protected by `PrivateRoute`. | `frontend/src/App.tsx`, `frontend/src/routes/PrivateRoute.tsx`, `frontend/src/pages/DashboardPage.tsx` |
+| `/auth-analytics` | Admin-only access analytics page with hourly global and per-service charts. Protected by `PrivateRoute`, then redirected back to `/` if the current user is not admin. | `frontend/src/App.tsx`, `frontend/src/routes/PrivateRoute.tsx`, `frontend/src/pages/AuthAnalyticsPage.tsx` |
 | `*` | Fallback 404 page. | `frontend/src/App.tsx`, `frontend/src/pages/NotFoundPage.tsx` |
 
 ## Auth and Session Flow
@@ -116,6 +121,7 @@ Source files:
 frontend/src
 |-- api
 |   |-- axios.ts
+|   |-- analytics.ts
 |   `-- services.ts
 |-- features
 |   |-- admin
@@ -134,6 +140,7 @@ frontend/src
 |   |   |-- types/indicatorService.ts
 |   |   `-- components
 |-- pages
+|   |-- AuthAnalyticsPage.tsx
 |   |-- DashboardPage.tsx
 |   |-- LoginPage.tsx
 |   `-- NotFoundPage.tsx
@@ -179,6 +186,20 @@ Important behaviors:
 - service cards open `http://${service.srv_ip}` in a new tab
 - services are grouped into a synthetic `Favoritos` section plus database-backed categories
 - the dashboard can open `ServiceModal`, `UserManager`, and `NginxConfigModal`
+- the admin user menu now also links to `/auth-analytics`
+
+### Auth analytics page
+
+`frontend/src/pages/AuthAnalyticsPage.tsx`
+
+Responsibilities:
+
+- fetch `/me` and redirect non-admin users back to `/`
+- default to the last 24 hours and fetch only when the range filter is applied
+- render one large hourly global access bar chart
+- render a simplified 3-column grid of per-service charts
+- show global detail rows directly on the page when a global bar is clicked
+- open a modal with service-specific hourly details when the user clicks `Ver detalhes`
 
 ### Not found page
 
@@ -297,6 +318,28 @@ Capabilities:
 - restore last successful config
 - show deployment output and warnings returned by the backend
 
+### Access analytics
+
+Main files:
+
+- `frontend/src/pages/AuthAnalyticsPage.tsx`
+- `frontend/src/api/analytics.ts`
+
+Capabilities:
+
+- view hourly global access totals
+- view hourly per-service access totals
+- filter by explicit time range using `datetime-local` inputs
+- use preset ranges for 24 hours, 72 hours, and 7 days
+- inspect global hourly user rows inline
+- inspect per-service hourly user rows in a modal
+
+Behavior notes:
+
+- the page uses custom responsive SVG bar charts rather than a modal-based admin tool
+- service cards are intentionally simplified to a 3-column grid with one compact chart each
+- the service modal opens with the latest hour that contains data selected by default
+
 ## API Dependency Map
 
 ### Auth and user endpoints
@@ -314,6 +357,7 @@ Capabilities:
 | `updateUserAdmin()` | `PUT /api_gateway/v1/users/admin/<id>/` | update user | `frontend/src/api/axios.ts`, `frontend/src/features/admin/users/components/UserManager.tsx` |
 | `deleteUserAdmin()` | `DELETE /api_gateway/v1/users/admin/<id>/` | delete user | `frontend/src/api/axios.ts`, `frontend/src/features/admin/users/components/UserManager.tsx` |
 | `getAllServicesForAdmin()` | `GET /api_gateway/v1/users/admin/services/all/` | fetch service checklist for user manager | `frontend/src/api/axios.ts`, `frontend/src/features/admin/users/components/UserManager.tsx` |
+| `getAuthAnalytics()` | `GET /api_gateway/v1/analytics/auth-access/` | fetch hourly global and per-service access analytics for the selected time range | `frontend/src/api/analytics.ts`, `frontend/src/pages/AuthAnalyticsPage.tsx` |
 
 ### Service and NGINX endpoints
 
@@ -373,10 +417,12 @@ Primary implementation files:
 - change route map: `frontend/src/App.tsx`
 - change login screen behavior or copy: `frontend/src/pages/LoginPage.tsx`
 - change dashboard composition, service loading, favorites, or admin modal wiring: `frontend/src/pages/DashboardPage.tsx`
+- change the access analytics page layout, chart rendering, or service detail modal: `frontend/src/pages/AuthAnalyticsPage.tsx`
 - change route guard behavior: `frontend/src/routes/PrivateRoute.tsx`
 - change auth check helper: `frontend/src/utils/auth.ts`
 - change login redirect and `next` sanitization: `frontend/src/utils/redirect.ts`
 - change Axios auth, refresh, and redirect behavior: `frontend/src/api/axios.ts`
+- change analytics backend calls: `frontend/src/api/analytics.ts`
 - change service and NGINX backend calls: `frontend/src/api/services.ts`
 - change dashboard shell and admin dropdown: `frontend/src/features/dashboard/components/DashboardNavbar.tsx`
 - change sidebar navigation: `frontend/src/features/dashboard/components/DashboardSidebar.tsx`
@@ -396,3 +442,4 @@ Primary implementation files:
 - `localStorage.refresh_token` is no longer the active refresh mechanism; the code keeps the key constant but clears it instead of using it.
 - Admin UI bootstrapping still reads `localStorage.isAdmin` before `/me` fully resolves, so UI state and backend truth can temporarily diverge during startup.
 - Service links are opened as `http://` plus the stored `srv_ip`, so the service record effectively controls the target URL.
+- The analytics page is a routed admin page, not a dashboard modal, and it performs a second admin check with `/me` after the private-route auth gate succeeds.

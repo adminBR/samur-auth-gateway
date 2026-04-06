@@ -1,13 +1,13 @@
 # ServicesQuickAuth API Gateway
 
-Centralized authentication and routing solution for a microservices environment. NGINX acts as the gateway, the Django backend validates access, and the React frontend provides login plus admin management for services, users, and generated NGINX config.
+Centralized authentication and routing solution for a microservices environment. NGINX acts as the gateway, the Django backend validates access, and the React frontend provides login plus admin management for services, access analytics, users, and generated NGINX config.
 
 ## Architecture
 
 - `frontend/`
-  React + Vite portal for login, indicator access, admin user management, service management, and NGINX publishing
+  React + Vite portal for login, indicator access, admin user management, service management, access analytics, and NGINX publishing
 - `backend/`
-  Django REST backend for auth, service CRUD, NGINX config generation/deploy, and work-order endpoints
+  Django REST backend for auth, service CRUD, access analytics queries, NGINX config generation/deploy, and work-order endpoints
 - `backend/nginx/header.local.conf`
   machine-local NGINX header template used as the base for generated gateway config
 
@@ -47,6 +47,9 @@ DJANGO_DB_USER=postgres
 DJANGO_DB_PASSWORD=postgres
 DJANGO_DB_CONNECT_TIMEOUT=5
 
+AUTH_ANALYTICS_DATABASE_URL=postgresql://postgres:postgres@192.168.1.16:5432/auth_gateway
+AUTH_ANALYTICS_DB_CONNECT_TIMEOUT=5
+
 AUTH_TOKEN_ALGORITHM=HS256
 AUTH_ACCESS_TOKEN_DEFAULT_DAYS=1
 AUTH_REFRESH_TOKEN_DAYS=90
@@ -70,6 +73,7 @@ DJANGO_LOG_LEVEL=INFO
 Notes:
 
 - database connection values are read by [`backend/utils/database.py`](./backend/utils/database.py)
+- analytics log database values are read by [`backend/utils/analytics_database.py`](./backend/utils/analytics_database.py)
 - auth, cookie, CORS, logging, and host settings are read by [`backend/serviceauth/settings.py`](./backend/serviceauth/settings.py)
 - the env loader is implemented in [`backend/utils/env.py`](./backend/utils/env.py)
 

@@ -11,6 +11,8 @@ It does four main jobs:
 3. Generates and deploys NGINX gateway config for protected services.
 4. Exposes a work-order endpoint that proxies Oracle insert requests through a DB proxy.
 
+It also exposes an admin-only analytics endpoint that reads hourly access logs from the auth-gateway log database and returns global plus per-service bar-chart data.
+
 The main URL root is defined in `backend/serviceauth/urls.py`.
 
 ## High-Level Request Flow
@@ -36,6 +38,8 @@ Source of truth for the gateway flow:
   - top-level route registration
 - `backend/serviceauth/settings.py`
   - auth, cookie, CORS, CSRF, logging, DRF config
+- `backend/analytics/views.py`
+  - admin access-log analytics endpoint and hourly aggregations
 - `backend/users/views.py`
   - login, logout, validate, refresh, `/me`, admin user endpoints
 - `backend/users/auth.py`
@@ -44,6 +48,8 @@ Source of truth for the gateway flow:
   - custom token creation, validation, cookie helpers, admin auth helper
 - `backend/utils/database.py`
   - real PostgreSQL connection used by the app code
+- `backend/utils/analytics_database.py`
+  - PostgreSQL connection for the raw access-log analytics database
 - `backend/services/views.py`
   - service listing, categories, favorites, create/update/delete service
 - `backend/nginx/builder.py`
@@ -101,6 +107,13 @@ Defined in `backend/utils/database.py`:
 - `DJANGO_DB_USER`
 - `DJANGO_DB_PASSWORD`
 - `DJANGO_DB_CONNECT_TIMEOUT`
+
+### Main env-backed analytics database settings
+
+Defined in `backend/utils/analytics_database.py`:
+
+- `AUTH_ANALYTICS_DATABASE_URL`
+- `AUTH_ANALYTICS_DB_CONNECT_TIMEOUT`
 
 ## Auth and Session Model
 
@@ -245,6 +258,20 @@ Current deployment implementation details:
 - current SSH host, port, user, and password are hardcoded in `backend/nginx/builder.py`
 - the deployed file is first uploaded to `/tmp/nginx-config-<uuid>.conf`, then moved into place, chmodded to `644`, and tested with `nginx -t`
 
+### Analytics
+
+| Method | Path | Auth | What it does | Source files |
+| --- | --- | --- | --- | --- |
+| `GET` | `/api_gateway/v1/analytics/auth-access/` | admin | Returns hourly global access totals plus hourly per-service totals and detail rows grouped by `user_id`, `user_name`, and `client_ip` for the requested time range. Defaults to the last 24 hours when `start` and `end` are omitted. | `backend/analytics/urls.py`, `backend/analytics/views.py`, `backend/utils/analytics_database.py`, `backend/utils/database.py` |
+
+Analytics query behavior:
+
+- reads from `public.raw_api_access_logs` in the analytics database
+- resolves service names from `services_info`
+- filters to real authenticated service accesses by requiring `user_id <> '-'` and `service_id IS NOT NULL`
+- groups all chart data by `date_trunc('hour', request_time)`
+- accepts ISO 8601 query params `start` and `end`
+
 ### Work Orders
 
 | Method | Path | Auth | What it does | Source files |
@@ -319,6 +346,7 @@ The backend code expects at least these tables:
 - `services_category`
 - `usr_favorite_services`
 - `services_conf_log`
+- `raw_api_access_logs`
 
 Observed columns used directly in code include:
 
@@ -345,6 +373,11 @@ Observed columns used directly in code include:
 - `services_conf_log.conf_id`
 - `services_conf_log.conf_text`
 - `services_conf_log.conf_status`
+- `raw_api_access_logs.request_time`
+- `raw_api_access_logs.user_id`
+- `raw_api_access_logs.user_name`
+- `raw_api_access_logs.service_id`
+- `raw_api_access_logs.client_ip`
 
 ## Where To Edit Specific Behavior
 
@@ -354,6 +387,7 @@ Observed columns used directly in code include:
 - change DRF auth fallback behavior: `backend/users/auth.py`
 - change login, refresh, validate, `/me`, or admin user logic: `backend/users/views.py`
 - change service listing or service CRUD rules: `backend/services/views.py`
+- change admin access analytics rules or response shape: `backend/analytics/views.py`
 - change category parsing or favorites behavior: `backend/services/views.py`
 - change NGINX header template loading: `backend/nginx/reference.py`
 - change the tracked example template: `backend/nginx/header.example.conf`
@@ -365,6 +399,7 @@ Observed columns used directly in code include:
 - change work-order SQL generation: `backend/workorders/views.py`
 - change DB proxy target or timeout: `backend/workorders/services.py`
 - change PostgreSQL connection env names/defaults: `backend/utils/database.py`
+- change analytics PostgreSQL connection env names/defaults: `backend/utils/analytics_database.py`
 - change auth regression coverage: `backend/users/tests.py`
 
 ## Known Implementation Notes For Future Agents
