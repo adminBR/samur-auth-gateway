@@ -29,11 +29,19 @@ from utils.jwt import (
     validate_token_payload,
 )
 from utils.database import get_db_connection
+from users.tasy_auth import (
+    TasyAuthConfigurationError,
+    TasyAuthError,
+    authenticate_tasy_user,
+    is_tasy_auth_configured,
+)
 
 logger = logging.getLogger(__name__)
 
 PASSWORD_REGEX = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).+$')  # At least one letter and one number
 MIN_PASSWORD_LENGTH = 6
+TASY_PASSWORD_PLACEHOLDER = "TASY"
+DEFAULT_TASY_USER_ACCESS = ""
 
 
 def normalize_jwt_expiration(value):
@@ -50,6 +58,109 @@ def validate_password(password):
         raise ValidationError({"detail": "Senha precisa ter no minimo uma letra e um número."})
     
     return True
+
+
+def build_user_record(row):
+    return {
+        "id": row[0],
+        "username": row[1],
+        "password": row[2],
+        "is_admin": bool(row[3]),
+        "jwt_expiration": row[4],
+        "is_tasy": bool(row[5]),
+    }
+
+
+def fetch_user_record_by_login(cur, user_name):
+    cur.execute(
+        """
+        SELECT
+            usr_id,
+            usr_login,
+            usr_password,
+            usr_admin,
+            jwt_expiration,
+            COALESCE(usr_tasy, FALSE)
+        FROM usr_info
+        WHERE usr_login = %s
+        """,
+        (user_name,),
+    )
+    row = cur.fetchone()
+    return build_user_record(row) if row else None
+
+
+def provision_tasy_user(cur, user_name):
+    jwt_expiration = serialize_access_lifetime(None)
+    cur.execute(
+        """
+        INSERT INTO usr_info (
+            usr_login,
+            usr_password,
+            usr_admin,
+            usr_access,
+            created_at,
+            jwt_expiration,
+            usr_tasy
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (usr_login) DO NOTHING
+        RETURNING
+            usr_id,
+            usr_login,
+            usr_password,
+            usr_admin,
+            jwt_expiration,
+            usr_tasy
+        """,
+        (
+            user_name,
+            TASY_PASSWORD_PLACEHOLDER,
+            False,
+            DEFAULT_TASY_USER_ACCESS,
+            datetime.now(tz=timezone.utc),
+            jwt_expiration,
+            True,
+        ),
+    )
+    row = cur.fetchone()
+    if row:
+        return build_user_record(row)
+
+    existing_user = fetch_user_record_by_login(cur, user_name)
+    if existing_user and existing_user["is_tasy"]:
+        return existing_user
+
+    return None
+
+
+def authenticate_user_for_login(cur, user_name, user_pass):
+    user = fetch_user_record_by_login(cur, user_name)
+    if user and not user["is_tasy"]:
+        if user["password"] == user_pass:
+            return user, False
+        return None, False
+
+    if not user and not is_tasy_auth_configured():
+        return None, False
+
+    if user and user["is_tasy"] and not is_tasy_auth_configured():
+        raise TasyAuthConfigurationError(
+            "Tasy authentication is not configured for this user."
+        )
+
+    is_valid_tasy_login = authenticate_tasy_user(user_name, user_pass)
+    if not is_valid_tasy_login:
+        return None, False
+
+    if user:
+        return user, False
+
+    provisioned_user = provision_tasy_user(cur, user_name)
+    if not provisioned_user:
+        raise APIException({"detail": "Failed to provision the Tasy-backed user."})
+
+    return provisioned_user, True
 
 
 class UserRegister(APIView):
@@ -83,9 +194,17 @@ class UserRegister(APIView):
 
             # --- user creation ---
             cur.execute("""
-                INSERT INTO usr_info (usr_login, usr_password, usr_access, usr_admin, created_at, jwt_expiration) 
-                VALUES (%s, %s, %s, %s, %s,%s)
-            """, (user_name, user_pass, "0", False, datetime.now(tz=timezone.utc), jwt_expiration))
+                INSERT INTO usr_info (
+                    usr_login,
+                    usr_password,
+                    usr_access,
+                    usr_admin,
+                    created_at,
+                    jwt_expiration,
+                    usr_tasy
+                ) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (user_name, user_pass, "0", False, datetime.now(tz=timezone.utc), jwt_expiration, False))
 
             conn.commit()
             logger.info(f"User registered successfully: {user_name}")
@@ -107,6 +226,7 @@ class UserLogin(APIView):
     def post(self, request):
         conn = get_db_connection()
         cur = conn.cursor()
+        conn.autocommit = False
 
         if not request.data.get('user_name'):
             logger.warning("Login attempt without 'user_name' field")
@@ -114,8 +234,6 @@ class UserLogin(APIView):
         if not request.data.get('user_pass'):
             logger.warning("Login attempt without 'user_pass' field")
             raise ValidationError({"detail":"Missing 'user_pass' field."})
-        else:
-            validate_password(request.data.get('user_pass'))
 
         user_name = request.data.get('user_name')
         user_name = user_name.lower()
@@ -124,15 +242,22 @@ class UserLogin(APIView):
         logger.info(f"Login attempt for username: {user_name}")
 
         try:
-            cur.execute("""
-                SELECT usr_id, usr_admin, jwt_expiration FROM usr_info 
-                WHERE usr_login = %s AND usr_password = %s
-            """, (user_name, user_pass,))
-            user = cur.fetchone()
-            
+            user, did_create_user = authenticate_user_for_login(cur, user_name, user_pass)
+            if did_create_user:
+                conn.commit()
+                logger.info("Provisioned Tasy-backed shadow user for '%s'", user_name)
         except psycopg2.Error as e:
+            conn.rollback()
             logger.error(f"Database error during login for {user_name}: {str(e)}", exc_info=True)
             raise APIException({"detail":'Database query error!'})
+        except TasyAuthConfigurationError as e:
+            conn.rollback()
+            logger.error("Tasy authentication is not configured for '%s': %s", user_name, str(e))
+            raise APIException({"detail": str(e)})
+        except TasyAuthError as e:
+            conn.rollback()
+            logger.error("Tasy authentication failed unexpectedly for '%s': %s", user_name, str(e), exc_info=True)
+            raise APIException({"detail": str(e)})
         finally:
             cur.close()
             conn.close()
@@ -141,18 +266,24 @@ class UserLogin(APIView):
             logger.warning(f"Login failed for username: {user_name} - Invalid credentials")
             raise ValidationError({"detail":"User not found or invalid credentials."})
 
-        jwt_expiration = normalize_jwt_expiration(user[2])
-        access_token = create_access_token(user[0], user_name, jwt_expiration)
-        refresh_token = create_refresh_token(user[0], user_name)
+        jwt_expiration = normalize_jwt_expiration(user["jwt_expiration"])
+        access_token = create_access_token(user["id"], user_name, jwt_expiration)
+        refresh_token = create_refresh_token(user["id"], user_name)
 
-        logger.info(f"User logged in successfully: {user_name} (ID: {user[0]})")
+        logger.info(
+            "User logged in successfully: %s (ID: %s, Tasy: %s)",
+            user_name,
+            user["id"],
+            user["is_tasy"],
+        )
 
         resp = Response({
             "response": "Login successful",
-            "user": {"id": user[0], "username": user_name},
+            "user": {"id": user["id"], "username": user_name},
             "access_token": access_token,
             "refresh_token": refresh_token,
-            "isAdmin":user[1],
+            "isAdmin":user["is_admin"],
+            "isTasy": user["is_tasy"],
             "jwt_expiration": jwt_expiration
         })
         set_access_token_cookie(resp, access_token, jwt_expiration)
@@ -316,7 +447,20 @@ class AdminAllUsersOperations(APIView):
         conn = get_db_connection()
         cur = conn.cursor()
         try:
-            cur.execute("SELECT usr_id, usr_login, usr_admin, usr_access, created_at, jwt_expiration FROM usr_info ORDER BY usr_id")
+            cur.execute(
+                """
+                SELECT
+                    usr_id,
+                    usr_login,
+                    usr_admin,
+                    usr_access,
+                    created_at,
+                    jwt_expiration,
+                    COALESCE(usr_tasy, FALSE)
+                FROM usr_info
+                ORDER BY usr_id
+                """
+            )
             users_data = cur.fetchall()
             users_list = [
                 {
@@ -325,7 +469,8 @@ class AdminAllUsersOperations(APIView):
                     "is_admin": row[2], 
                     "access": row[3],
                     "created_at": row[4].isoformat() if row[4] else None,
-                    "jwt_expiration": normalize_jwt_expiration(row[5])
+                    "jwt_expiration": normalize_jwt_expiration(row[5]),
+                    "is_tasy": bool(row[6]),
                 } for row in users_data
             ]
             logger.debug(f"Retrieved {len(users_list)} users from database")
@@ -372,9 +517,17 @@ class AdminAllUsersOperations(APIView):
                 raise ValidationError({"detail":f"Username '{user_name}' already in use."})
 
             cur.execute("""
-                INSERT INTO usr_info (usr_login, usr_password, usr_admin, usr_access, created_at, jwt_expiration)
-                VALUES (%s, %s, %s, %s, %s, %s) RETURNING usr_id
-            """, (user_name, user_pass_processed, bool(is_admin), usr_access, datetime.now(tz=timezone.utc), jwt_expiration))
+                INSERT INTO usr_info (
+                    usr_login,
+                    usr_password,
+                    usr_admin,
+                    usr_access,
+                    created_at,
+                    jwt_expiration,
+                    usr_tasy
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING usr_id
+            """, (user_name, user_pass_processed, bool(is_admin), usr_access, datetime.now(tz=timezone.utc), jwt_expiration, False))
             response = cur.fetchone()
             
             if(response and response[0]):
@@ -398,7 +551,14 @@ class AdminAllUsersOperations(APIView):
             
         return Response({
                 "response": f"User '{user_name}' created successfully.",
-                "user": {"id": new_user_id, "username": user_name, "is_admin": bool(is_admin), "access": usr_access, "jwt_expiration":jwt_expiration}
+                "user": {
+                    "id": new_user_id,
+                    "username": user_name,
+                    "is_admin": bool(is_admin),
+                    "access": usr_access,
+                    "jwt_expiration":jwt_expiration,
+                    "is_tasy": False,
+                }
             }, status=status.HTTP_201_CREATED)
 
 
@@ -413,7 +573,21 @@ class AdminSingleUserOperations(APIView):
         conn = get_db_connection()
         cur = conn.cursor()
         try:
-            cur.execute("SELECT usr_id, usr_login, usr_admin, usr_access, created_at, jwt_expiration FROM usr_info WHERE usr_id = %s", (target_user_id,))
+            cur.execute(
+                """
+                SELECT
+                    usr_id,
+                    usr_login,
+                    usr_admin,
+                    usr_access,
+                    created_at,
+                    jwt_expiration,
+                    COALESCE(usr_tasy, FALSE)
+                FROM usr_info
+                WHERE usr_id = %s
+                """,
+                (target_user_id,),
+            )
             user_data = cur.fetchone()
             if not user_data:
                 logger.warning(f"User not found - user_id: {target_user_id}")
@@ -425,7 +599,8 @@ class AdminSingleUserOperations(APIView):
                 "is_admin": user_data[2], 
                 "access": user_data[3],
                 "created_at": user_data[4].isoformat() if user_data[4] else None,
-                "jwt_expiration": normalize_jwt_expiration(user_data[5])
+                "jwt_expiration": normalize_jwt_expiration(user_data[5]),
+                "is_tasy": bool(user_data[6]),
             }
             return Response(user_details, status=status.HTTP_200_OK)
         except psycopg2.Error as e:
@@ -495,7 +670,20 @@ class AdminSingleUserOperations(APIView):
             conn.commit()
 
             # Fetch updated user details to return
-            cur.execute("SELECT usr_id, usr_login, usr_admin, usr_access, jwt_expiration FROM usr_info WHERE usr_id = %s", (target_user_id,))
+            cur.execute(
+                """
+                SELECT
+                    usr_id,
+                    usr_login,
+                    usr_admin,
+                    usr_access,
+                    jwt_expiration,
+                    COALESCE(usr_tasy, FALSE)
+                FROM usr_info
+                WHERE usr_id = %s
+                """,
+                (target_user_id,),
+            )
             updated_user = cur.fetchone()
             
         except psycopg2.Error as db_error:
@@ -518,7 +706,8 @@ class AdminSingleUserOperations(APIView):
                 "username": updated_user[1],
                 "is_admin": updated_user[2],
                 "access": updated_user[3],
-                "jwt_expiration": normalize_jwt_expiration(updated_user[4])
+                "jwt_expiration": normalize_jwt_expiration(updated_user[4]),
+                "is_tasy": bool(updated_user[5]),
             }
         }, status=status.HTTP_200_OK)
 

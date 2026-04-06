@@ -17,6 +17,121 @@ class AuthFlowTests(SimpleTestCase):
     def setUp(self):
         self.client = APIClient()
 
+    @patch("users.views.authenticate_tasy_user")
+    @patch("users.views.get_db_connection")
+    def test_login_endpoint_authenticates_local_postgres_user(
+        self,
+        mock_get_db_connection,
+        mock_authenticate_tasy_user,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.side_effect = [
+            (5, "alice", "abc123", False, "1", False),
+        ]
+
+        response = self.client.post(
+            "/api_gateway/v1/users/login/",
+            {"user_name": "alice", "user_pass": "abc123"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"], {"id": 5, "username": "alice"})
+        self.assertFalse(response.data["isAdmin"])
+        self.assertFalse(response.data["isTasy"])
+        self.assertIn(settings.AUTH_ACCESS_TOKEN_COOKIE_NAME, response.cookies)
+        self.assertIn(settings.AUTH_REFRESH_TOKEN_COOKIE_NAME, response.cookies)
+        mock_authenticate_tasy_user.assert_not_called()
+        conn.commit.assert_not_called()
+
+    @patch("users.views.is_tasy_auth_configured", return_value=True)
+    @patch("users.views.authenticate_tasy_user", return_value=True)
+    @patch("users.views.get_db_connection")
+    def test_login_endpoint_authenticates_existing_tasy_user_without_password_format_validation(
+        self,
+        mock_get_db_connection,
+        mock_authenticate_tasy_user,
+        _mock_is_tasy_auth_configured,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.side_effect = [
+            (8, "tasy.user", "TASY", False, "1", True),
+        ]
+
+        response = self.client.post(
+            "/api_gateway/v1/users/login/",
+            {"user_name": "tasy.user", "user_pass": "123"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["isTasy"])
+        mock_authenticate_tasy_user.assert_called_once_with("tasy.user", "123")
+        conn.commit.assert_not_called()
+
+    @patch("users.views.is_tasy_auth_configured", return_value=True)
+    @patch("users.views.authenticate_tasy_user", return_value=True)
+    @patch("users.views.get_db_connection")
+    def test_login_endpoint_provisions_tasy_user_when_missing_locally(
+        self,
+        mock_get_db_connection,
+        mock_authenticate_tasy_user,
+        _mock_is_tasy_auth_configured,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.side_effect = [
+            None,
+            (12, "new.tasy", "TASY", False, "1", True),
+        ]
+
+        response = self.client.post(
+            "/api_gateway/v1/users/login/",
+            {"user_name": "new.tasy", "user_pass": "456"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"], {"id": 12, "username": "new.tasy"})
+        self.assertTrue(response.data["isTasy"])
+        mock_authenticate_tasy_user.assert_called_once_with("new.tasy", "456")
+        conn.commit.assert_called_once()
+        self.assertTrue(
+            any(
+                "INSERT INTO usr_info" in call.args[0]
+                for call in cur.execute.call_args_list
+            )
+        )
+
+    @patch("users.views.is_tasy_auth_configured", return_value=True)
+    @patch("users.views.authenticate_tasy_user", return_value=False)
+    @patch("users.views.get_db_connection")
+    def test_login_endpoint_returns_invalid_credentials_when_tasy_auth_fails(
+        self,
+        mock_get_db_connection,
+        mock_authenticate_tasy_user,
+        _mock_is_tasy_auth_configured,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.side_effect = [None]
+
+        response = self.client.post(
+            "/api_gateway/v1/users/login/",
+            {"user_name": "missing.user", "user_pass": "123"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["detail"],
+            "User not found or invalid credentials.",
+        )
+        mock_authenticate_tasy_user.assert_called_once_with("missing.user", "123")
+        conn.commit.assert_not_called()
+
     @patch(
         "users.views.fetch_user_auth_context",
         return_value={

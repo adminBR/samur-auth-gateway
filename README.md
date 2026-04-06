@@ -47,6 +47,11 @@ DJANGO_DB_USER=postgres
 DJANGO_DB_PASSWORD=postgres
 DJANGO_DB_CONNECT_TIMEOUT=5
 
+TASY_AUTH_API_URL=http://192.168.1.16:1001/api/v1/fetch/single
+TASY_AUTH_DB_ID=oracle_prod
+TASY_AUTH_PASSKEY=change-me
+TASY_AUTH_TIMEOUT_SECONDS=10
+
 AUTH_ANALYTICS_DATABASE_URL=postgresql://postgres:postgres@192.168.1.16:5432/auth_gateway
 AUTH_ANALYTICS_DB_CONNECT_TIMEOUT=5
 
@@ -73,6 +78,7 @@ DJANGO_LOG_LEVEL=INFO
 Notes:
 
 - database connection values are read by [`backend/utils/database.py`](./backend/utils/database.py)
+- Tasy fallback auth values are read by [`backend/users/tasy_auth.py`](./backend/users/tasy_auth.py)
 - analytics log database values are read by [`backend/utils/analytics_database.py`](./backend/utils/analytics_database.py)
 - auth, cookie, CORS, logging, and host settings are read by [`backend/serviceauth/settings.py`](./backend/serviceauth/settings.py)
 - the env loader is implemented in [`backend/utils/env.py`](./backend/utils/env.py)
@@ -138,6 +144,10 @@ Reference files:
 - [`backend/ddl.sql`](./backend/ddl.sql)
 - [`backend/sql/`](./backend/sql/)
 - [`backend/BACKEND_REFERENCE.md`](./backend/BACKEND_REFERENCE.md)
+
+If you are enabling the Tasy login fallback, also apply:
+
+- [`backend/sql/20260406_add_usr_tasy_flag.sql`](./backend/sql/20260406_add_usr_tasy_flag.sql)
 
 ## Running Locally
 

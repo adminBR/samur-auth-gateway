@@ -13,6 +13,8 @@ It does four main jobs:
 
 It also exposes an admin-only analytics endpoint that reads hourly access logs from the auth-gateway log database and returns global plus per-service bar-chart data.
 
+The login flow can also fall back to a Tasy-backed external credential check and provision a local shadow user in `usr_info` when needed.
+
 The main URL root is defined in `backend/serviceauth/urls.py`.
 
 ## High-Level Request Flow
@@ -42,6 +44,8 @@ Source of truth for the gateway flow:
   - admin access-log analytics endpoint and hourly aggregations
 - `backend/users/views.py`
   - login, logout, validate, refresh, `/me`, admin user endpoints
+- `backend/users/tasy_auth.py`
+  - Tasy credential verification through the DB proxy bridge
 - `backend/users/auth.py`
   - DRF authentication class for access token auth
 - `backend/utils/jwt.py`
@@ -114,6 +118,15 @@ Defined in `backend/utils/analytics_database.py`:
 
 - `AUTH_ANALYTICS_DATABASE_URL`
 - `AUTH_ANALYTICS_DB_CONNECT_TIMEOUT`
+
+### Main env-backed Tasy auth settings
+
+Defined in `backend/users/tasy_auth.py`:
+
+- `TASY_AUTH_API_URL`
+- `TASY_AUTH_DB_ID`
+- `TASY_AUTH_PASSKEY`
+- `TASY_AUTH_TIMEOUT_SECONDS`
 
 ## Auth and Session Model
 
@@ -200,7 +213,7 @@ Cookie names are configurable:
 
 | Method | Path | Auth | What it does | Source files |
 | --- | --- | --- | --- | --- |
-| `POST` | `/api_gateway/v1/users/login/` | public | Validates credentials, returns `access_token`, `refresh_token`, `isAdmin`, `jwt_expiration`, and sets both cookies. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py` |
+| `POST` | `/api_gateway/v1/users/login/` | public | Validates credentials, returns `access_token`, `refresh_token`, `isAdmin`, `jwt_expiration`, and sets both cookies. Local users are checked against PostgreSQL directly. When `usr_tasy` is true, or the user does not exist locally, the backend can validate through Tasy and provision a local shadow row. | `backend/users/urls.py`, `backend/users/views.py`, `backend/users/tasy_auth.py`, `backend/utils/jwt.py` |
 | `GET` | `/api_gateway/v1/users/me/` | access token | Returns `user_id`, `user_name`, `is_admin`. Prefers cookie auth. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py` |
 | `GET` | `/api_gateway/v1/users/logout` | optional | Clears auth cookies and returns `Logged out`. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py` |
 | `GET` | `/api_gateway/v1/users/validate` | access token | Validates the access token. If `X-Service-ID` is present, also checks `usr_info.usr_access`. Returns `401` when the user is unauthenticated and `403` when the token is valid but the user lacks access to that service. Used by NGINX `auth_request`. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py`, `extra/example.conf` |
@@ -215,8 +228,9 @@ Cookie names are configurable:
 Notes:
 
 - `UserRegister` still exists in `backend/users/views.py`, but its route is commented out in `backend/users/urls.py`.
-- Password validation requires minimum length `6` and at least one letter and one number in `backend/users/views.py`.
-- The current login query matches `usr_password` directly in SQL, so the current implementation behaves like plain-text password comparison.
+- Password validation requires minimum length `6` and at least one letter and one number when admins create or update local users in `backend/users/views.py`.
+- Login no longer enforces the admin password-format rules before authentication, which allows external Tasy credentials to be checked as-is.
+- Tasy shadow users are stored in PostgreSQL with `usr_tasy = true` and placeholder password `TASY`; future logins for those users always re-check credentials through Tasy.
 
 ### Services
 
@@ -355,6 +369,7 @@ Observed columns used directly in code include:
 - `usr_info.usr_password`
 - `usr_info.usr_access`
 - `usr_info.usr_admin`
+- `usr_info.usr_tasy`
 - `usr_info.created_at`
 - `usr_info.jwt_expiration`
 - `services_info.srv_id`
@@ -386,6 +401,7 @@ Observed columns used directly in code include:
 - change token creation or cookie write/clear logic: `backend/utils/jwt.py`
 - change DRF auth fallback behavior: `backend/users/auth.py`
 - change login, refresh, validate, `/me`, or admin user logic: `backend/users/views.py`
+- change external Tasy login verification: `backend/users/tasy_auth.py`
 - change service listing or service CRUD rules: `backend/services/views.py`
 - change admin access analytics rules or response shape: `backend/analytics/views.py`
 - change category parsing or favorites behavior: `backend/services/views.py`
@@ -407,6 +423,7 @@ Observed columns used directly in code include:
 - The backend business data is not using Django ORM models for the core flows; most reads and writes are raw SQL through `psycopg2`.
 - Cookie auth is now part of the intended runtime behavior, especially for `/me`, `/validate`, and refresh.
 - The app exposes SimpleJWT endpoints, but the portal uses the custom JWT flow instead.
+- Tasy-backed users are shadowed into `usr_info` with `usr_tasy = true`, so they can use favorites, access lists, and the rest of the panel without storing a reusable local password hash.
 - Service access control is string-based and depends on comma-separated service IDs in `usr_info.usr_access`.
 - Several infrastructure values are still hardcoded in source files rather than moved to env:
   - SSH deployment settings in `backend/nginx/builder.py`

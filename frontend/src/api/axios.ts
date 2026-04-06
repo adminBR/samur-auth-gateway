@@ -6,6 +6,7 @@ export interface User {
   id: number;
   username: string;
   is_admin: boolean;
+  is_tasy?: boolean;
   access: string;
   created_at?: string;
   jwt_expiration: string;
