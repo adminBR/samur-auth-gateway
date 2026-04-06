@@ -34,6 +34,7 @@ from users.tasy_auth import (
     TasyAuthError,
     authenticate_tasy_user,
     is_tasy_auth_configured,
+    normalize_tasy_username,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,14 +61,26 @@ def validate_password(password):
     return True
 
 
+def normalize_case_insensitive_value(value):
+    return str(value or "").upper()
+
+
+def canonicalize_username(username, *, is_tasy=False):
+    normalized_username = str(username or "").strip()
+    if is_tasy:
+        return normalize_tasy_username(normalized_username)
+    return normalized_username
+
+
 def build_user_record(row):
+    is_tasy = bool(row[5])
     return {
         "id": row[0],
-        "username": row[1],
+        "username": canonicalize_username(row[1], is_tasy=is_tasy),
         "password": row[2],
         "is_admin": bool(row[3]),
         "jwt_expiration": row[4],
-        "is_tasy": bool(row[5]),
+        "is_tasy": is_tasy,
     }
 
 
@@ -82,7 +95,7 @@ def fetch_user_record_by_login(cur, user_name):
             jwt_expiration,
             COALESCE(usr_tasy, FALSE)
         FROM usr_info
-        WHERE usr_login = %s
+        WHERE UPPER(usr_login) = UPPER(%s)
         """,
         (user_name,),
     )
@@ -91,6 +104,7 @@ def fetch_user_record_by_login(cur, user_name):
 
 
 def provision_tasy_user(cur, user_name):
+    normalized_username = normalize_tasy_username(user_name)
     jwt_expiration = serialize_access_lifetime(None)
     cur.execute(
         """
@@ -114,7 +128,7 @@ def provision_tasy_user(cur, user_name):
             usr_tasy
         """,
         (
-            user_name,
+            normalized_username,
             TASY_PASSWORD_PLACEHOLDER,
             False,
             DEFAULT_TASY_USER_ACCESS,
@@ -137,7 +151,7 @@ def provision_tasy_user(cur, user_name):
 def authenticate_user_for_login(cur, user_name, user_pass):
     user = fetch_user_record_by_login(cur, user_name)
     if user and not user["is_tasy"]:
-        if user["password"] == user_pass:
+        if normalize_case_insensitive_value(user["password"]) == normalize_case_insensitive_value(user_pass):
             return user, False
         return None, False
 
@@ -178,8 +192,7 @@ class UserRegister(APIView):
         else:
             validate_password(request.data.get('user_pass'))
 
-        user_name = request.data.get('user_name')
-        user_name = user_name.lower()
+        user_name = str(request.data.get('user_name') or "").strip()
         user_pass = request.data.get('user_pass')
         jwt_expiration = normalize_jwt_expiration(request.data.get('jwt_expiration'))
 
@@ -235,8 +248,7 @@ class UserLogin(APIView):
             logger.warning("Login attempt without 'user_pass' field")
             raise ValidationError({"detail":"Missing 'user_pass' field."})
 
-        user_name = request.data.get('user_name')
-        user_name = user_name.lower()
+        user_name = str(request.data.get('user_name') or "").strip()
         user_pass = request.data.get('user_pass')
 
         logger.info(f"Login attempt for username: {user_name}")
@@ -267,19 +279,20 @@ class UserLogin(APIView):
             raise ValidationError({"detail":"User not found or invalid credentials."})
 
         jwt_expiration = normalize_jwt_expiration(user["jwt_expiration"])
-        access_token = create_access_token(user["id"], user_name, jwt_expiration)
-        refresh_token = create_refresh_token(user["id"], user_name)
+        authenticated_user_name = user["username"]
+        access_token = create_access_token(user["id"], authenticated_user_name, jwt_expiration)
+        refresh_token = create_refresh_token(user["id"], authenticated_user_name)
 
         logger.info(
             "User logged in successfully: %s (ID: %s, Tasy: %s)",
-            user_name,
+            authenticated_user_name,
             user["id"],
             user["is_tasy"],
         )
 
         resp = Response({
             "response": "Login successful",
-            "user": {"id": user["id"], "username": user_name},
+            "user": {"id": user["id"], "username": authenticated_user_name},
             "access_token": access_token,
             "refresh_token": refresh_token,
             "isAdmin":user["is_admin"],

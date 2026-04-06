@@ -8,6 +8,7 @@ from rest_framework.authentication import get_authorization_header
 from rest_framework.exceptions import APIException, AuthenticationFailed
 
 from utils import database
+from users.tasy_auth import normalize_tasy_username
 
 TOKEN_TYPE_ACCESS = "access"
 TOKEN_TYPE_REFRESH = "refresh"
@@ -214,15 +215,24 @@ def fetch_user_auth_context(user_id) -> dict | None:
     cur = conn.cursor()
     try:
         cur.execute(
-            "SELECT usr_login, usr_admin, jwt_expiration FROM usr_info WHERE usr_id = %s",
+            """
+            SELECT
+                usr_login,
+                usr_admin,
+                jwt_expiration,
+                COALESCE(usr_tasy, FALSE)
+            FROM usr_info
+            WHERE usr_id = %s
+            """,
             (user_id,),
         )
         row = cur.fetchone()
         if not row:
             return None
 
+        is_tasy = bool(row[3])
         return {
-            "user_name": row[0],
+            "user_name": normalize_tasy_username(row[0]) if is_tasy else row[0],
             "is_admin": bool(row[1]),
             "jwt_expiration": serialize_access_lifetime(row[2]),
         }

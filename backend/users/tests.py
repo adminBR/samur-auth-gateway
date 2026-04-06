@@ -10,6 +10,7 @@ from utils.jwt import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    fetch_user_auth_context,
 )
 
 
@@ -27,17 +28,17 @@ class AuthFlowTests(SimpleTestCase):
         conn = mock_get_db_connection.return_value
         cur = conn.cursor.return_value
         cur.fetchone.side_effect = [
-            (5, "alice", "abc123", False, "1", False),
+            (5, "Alice", "AbC123", False, "1", False),
         ]
 
         response = self.client.post(
             "/api_gateway/v1/users/login/",
-            {"user_name": "alice", "user_pass": "abc123"},
+            {"user_name": "ALICE", "user_pass": "abc123"},
             format="json",
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["user"], {"id": 5, "username": "alice"})
+        self.assertEqual(response.data["user"], {"id": 5, "username": "Alice"})
         self.assertFalse(response.data["isAdmin"])
         self.assertFalse(response.data["isTasy"])
         self.assertIn(settings.AUTH_ACCESS_TOKEN_COOKIE_NAME, response.cookies)
@@ -62,13 +63,14 @@ class AuthFlowTests(SimpleTestCase):
 
         response = self.client.post(
             "/api_gateway/v1/users/login/",
-            {"user_name": "tasy.user", "user_pass": "123"},
+            {"user_name": "TaSy.User", "user_pass": "123"},
             format="json",
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["isTasy"])
-        mock_authenticate_tasy_user.assert_called_once_with("tasy.user", "123")
+        self.assertEqual(response.data["user"], {"id": 8, "username": "TASY.USER"})
+        mock_authenticate_tasy_user.assert_called_once_with("TaSy.User", "123")
         conn.commit.assert_not_called()
 
     @patch("users.views.is_tasy_auth_configured", return_value=True)
@@ -94,7 +96,7 @@ class AuthFlowTests(SimpleTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["user"], {"id": 12, "username": "new.tasy"})
+        self.assertEqual(response.data["user"], {"id": 12, "username": "NEW.TASY"})
         self.assertTrue(response.data["isTasy"])
         mock_authenticate_tasy_user.assert_called_once_with("new.tasy", "456")
         conn.commit.assert_called_once()
@@ -102,6 +104,13 @@ class AuthFlowTests(SimpleTestCase):
             any(
                 "INSERT INTO usr_info" in call.args[0]
                 for call in cur.execute.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                len(call.args) > 1 and call.args[1][0] == "NEW.TASY"
+                for call in cur.execute.call_args_list
+                if "INSERT INTO usr_info" in call.args[0]
             )
         )
 
@@ -201,6 +210,26 @@ class AuthFlowTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.data["detail"], "No token provided")
+
+    @patch("utils.jwt.database.get_db_connection")
+    def test_fetch_user_auth_context_uppercases_tasy_username(
+        self,
+        mock_get_db_connection,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.return_value = ("tasy.user", False, "1", True)
+
+        context = fetch_user_auth_context(10)
+
+        self.assertEqual(
+            context,
+            {
+                "user_name": "TASY.USER",
+                "is_admin": False,
+                "jwt_expiration": "1",
+            },
+        )
 
     @patch("users.views.get_db_connection")
     def test_validate_endpoint_returns_403_when_user_lacks_service_access(

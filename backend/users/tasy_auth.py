@@ -12,6 +12,10 @@ TASY_AUTH_PASSKEY = env("TASY_AUTH_PASSKEY")
 TASY_AUTH_TIMEOUT_SECONDS = env_int("TASY_AUTH_TIMEOUT_SECONDS", 10)
 
 
+def normalize_tasy_username(username: str) -> str:
+    return str(username or "").strip().upper()
+
+
 class TasyAuthError(Exception):
     """Raised when the Tasy auth bridge cannot complete the verification flow."""
 
@@ -82,7 +86,7 @@ def _run_tasy_query(query: str):
 
 
 def authenticate_tasy_user(username: str, password: str) -> bool:
-    normalized_username = str(username or "").strip().upper()
+    normalized_username = normalize_tasy_username(username)
     normalized_password = str(password or "")
 
     if not normalized_username or normalized_password == "":
