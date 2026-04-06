@@ -5,6 +5,7 @@ from django.test import SimpleTestCase
 from rest_framework.test import APIClient, APIRequestFactory
 
 from users.auth import JWTCustomAuth
+from users.tasy_auth import authenticate_tasy_user
 from utils.jwt import (
     TOKEN_TYPE_ACCESS,
     create_access_token,
@@ -250,3 +251,26 @@ class AuthFlowTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Access denied to this service")
+
+
+class TasyAuthTests(SimpleTestCase):
+    @patch("users.tasy_auth._run_tasy_query")
+    def test_authenticate_tasy_user_normalizes_database_username_comparison(
+        self,
+        mock_run_tasy_query,
+    ):
+        mock_run_tasy_query.side_effect = [
+            {
+                "nm_usuario": "MiXeD.User",
+                "ds_senha": "HASH123",
+                "ds_tec": "salt",
+            },
+            {"computed_hash": "HASH123"},
+        ]
+
+        is_valid = authenticate_tasy_user("mixed.user", "abc123")
+
+        self.assertTrue(is_valid)
+        user_lookup_query = mock_run_tasy_query.call_args_list[0].args[0]
+        self.assertIn("UPPER(TRIM(nm_usuario))", user_lookup_query)
+        self.assertIn("= 'MIXED.USER'", user_lookup_query)

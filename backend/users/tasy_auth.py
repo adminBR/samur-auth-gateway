@@ -94,9 +94,9 @@ def authenticate_tasy_user(username: str, password: str) -> bool:
 
     escaped_username = _escape_oracle_literal(normalized_username)
     query_user = f"""
-        SELECT ds_senha, ds_tec
+        SELECT nm_usuario, ds_senha, ds_tec
         FROM usuario
-        WHERE nm_usuario = '{escaped_username}'
+        WHERE UPPER(TRIM(nm_usuario)) = '{escaped_username}'
     """
 
     user_row = _run_tasy_query(query_user)
@@ -104,11 +104,18 @@ def authenticate_tasy_user(username: str, password: str) -> bool:
         logger.info("Tasy user '%s' was not found.", normalized_username)
         return False
 
-    stored_hash = _extract_row_value(user_row, "ds_senha", index=0)
-    salt = _extract_row_value(user_row, "ds_tec", index=1)
+    matched_username = _extract_row_value(user_row, "nm_usuario", index=0)
+    stored_hash = _extract_row_value(user_row, "ds_senha", index=1)
+    salt = _extract_row_value(user_row, "ds_tec", index=2)
 
     if not stored_hash or not salt:
         raise TasyAuthError("Missing user credentials in the Tasy authentication response.")
+
+    logger.debug(
+        "Matched Tasy username '%s' for normalized login '%s'.",
+        matched_username,
+        normalized_username,
+    )
 
     escaped_password = _escape_oracle_literal(normalized_password)
     escaped_salt = _escape_oracle_literal(str(salt))
