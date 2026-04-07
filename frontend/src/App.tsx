@@ -3,6 +3,7 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import AuthAnalyticsPage from "./pages/AuthAnalyticsPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import UserManagementPage from "./pages/UserManagementPage";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import PrivateRoute from "./routes/PrivateRoute";
 
@@ -25,6 +26,14 @@ function App() {
             element={
               <PrivateRoute>
                 <AuthAnalyticsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <PrivateRoute>
+                <UserManagementPage />
               </PrivateRoute>
             }
           />

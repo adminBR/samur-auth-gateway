@@ -38,6 +38,7 @@ Primary source files:
 | --- | --- | --- |
 | `/login` | Login page with optional `next` redirect target. | `frontend/src/App.tsx`, `frontend/src/pages/LoginPage.tsx`, `frontend/src/utils/redirect.ts` |
 | `/` | Main authenticated dashboard. Protected by `PrivateRoute`. | `frontend/src/App.tsx`, `frontend/src/routes/PrivateRoute.tsx`, `frontend/src/pages/DashboardPage.tsx` |
+| `/users` | Admin-only full-page user management screen. Protected by `PrivateRoute`, then redirected back to `/` if the current user is not admin. | `frontend/src/App.tsx`, `frontend/src/routes/PrivateRoute.tsx`, `frontend/src/pages/UserManagementPage.tsx`, `frontend/src/features/admin/users/components/UserManager.tsx` |
 | `/auth-analytics` | Admin-only access analytics page with hourly global and per-service charts. Protected by `PrivateRoute`, then redirected back to `/` if the current user is not admin. | `frontend/src/App.tsx`, `frontend/src/routes/PrivateRoute.tsx`, `frontend/src/pages/AuthAnalyticsPage.tsx` |
 | `*` | Fallback 404 page. | `frontend/src/App.tsx`, `frontend/src/pages/NotFoundPage.tsx` |
 
@@ -143,7 +144,8 @@ frontend/src
 |   |-- AuthAnalyticsPage.tsx
 |   |-- DashboardPage.tsx
 |   |-- LoginPage.tsx
-|   `-- NotFoundPage.tsx
+|   |-- NotFoundPage.tsx
+|   `-- UserManagementPage.tsx
 |-- routes/PrivateRoute.tsx
 |-- utils
 |   |-- auth.ts
@@ -185,7 +187,8 @@ Important behaviors:
 
 - service cards open `http://${service.srv_ip}` in a new tab
 - services are grouped into a synthetic `Favoritos` section plus database-backed categories
-- the dashboard can open `ServiceModal`, `UserManager`, and `NginxConfigModal`
+- the dashboard can open `ServiceModal` and `NginxConfigModal`
+- the admin user menu navigates to the dedicated `/users` page for user management
 - the admin user menu now also links to `/auth-analytics`
 
 ### Auth analytics page
@@ -283,8 +286,9 @@ The modal does not generate the blocks for the admin; it validates what the admi
 
 ### User management
 
-Main file:
+Main files:
 
+- `frontend/src/pages/UserManagementPage.tsx`
 - `frontend/src/features/admin/users/components/UserManager.tsx`
 
 Capabilities:
@@ -296,11 +300,16 @@ Capabilities:
 - toggle admin flag
 - toggle "session infinite" which maps to `jwt_expiration = "inf"`
 - assign service access IDs through checkbox selection
+- search by username
+- filter by user origin (`local` or `Tasy`)
+- filter by specific access or show users without any indicator
+- sort by username, admin flag, Tasy flag, access count, session type, and creation date
 
 Behavior notes:
 
-- bootstraps admin access from `localStorage.isAdmin`
+- runs as a dedicated full page rather than a dashboard modal
 - calls backend admin endpoints in `frontend/src/api/axios.ts`
+- validates admin access with `/me` and redirects non-admin users back to `/`
 - displays `jwt_expiration === "inf"` as `Infinito`
 
 ### NGINX operations

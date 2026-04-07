@@ -31,7 +31,7 @@ import {
   type DashboardSectionId,
   type IndicatorCategoryGroup,
 } from "../features/dashboard";
-import { NginxConfigModal, ServiceModal, UserManager } from "../features/admin";
+import { NginxConfigModal, ServiceModal } from "../features/admin";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -42,7 +42,6 @@ export default function DashboardPage() {
   const [services, setServices] = useState<IndicatorService[]>([]);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  const [userManager, setUserManager] = useState<boolean>(false);
   const [nginxConfigModal, setNginxConfigModal] = useState<boolean>(false);
   const [nginxConfig, setNginxConfig] = useState<string | null>(null);
   const [isNginxLoading, setIsNginxLoading] = useState<boolean>(false);
@@ -461,7 +460,7 @@ export default function DashboardPage() {
             isAdmin={isAdmin}
             userName={userName}
             onAddService={handleOpenAddModal}
-            onManageUsers={() => setUserManager((prev) => !prev)}
+            onManageUsers={() => navigate("/users")}
             onViewNginxConfig={handleViewNginxConfig}
             onViewAnalytics={() => navigate("/auth-analytics")}
             isAddLoading={isLoading}
@@ -532,9 +531,6 @@ export default function DashboardPage() {
         onFileSelect={handleFileSelect}
         predictedServiceId={predictedServiceId}
       />
-
-      {userManager && <UserManager onClose={() => setUserManager(false)} />}
-
       <NginxConfigModal
         isOpen={nginxConfigModal}
         onClose={() => setNginxConfigModal(false)}
