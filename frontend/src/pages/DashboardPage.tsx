@@ -112,6 +112,7 @@ export default function DashboardPage() {
   ];
 
   const hasVisibleIndicators = filteredServices.length > 0;
+  const hasAssignedIndicators = services.length > 0;
 
   const getSectionKey = (category: DashboardSectionId) => String(category);
 
@@ -507,7 +508,9 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : (
-                <IndicatorsEmptyState />
+                <IndicatorsEmptyState
+                  hasAssignedIndicators={hasAssignedIndicators}
+                />
               )}
             </div>
           </main>
