@@ -85,36 +85,73 @@ def _run_tasy_query(query: str):
     return rows[0] if rows else None
 
 
-def authenticate_tasy_user(username: str, password: str) -> bool:
+def _fetch_tasy_user_credentials(username: str):
     normalized_username = normalize_tasy_username(username)
-    normalized_password = str(password or "")
-
-    if not normalized_username or normalized_password == "":
-        return False
+    if not normalized_username:
+        return None
 
     escaped_username = _escape_oracle_literal(normalized_username)
     query_user = f"""
-        SELECT nm_usuario, ds_senha, ds_tec
+        SELECT ds_usuario, nm_usuario, ds_senha, ds_tec
         FROM usuario
-        WHERE UPPER(TRIM(nm_usuario)) = '{escaped_username}'
+        WHERE UPPER(TRIM(ds_usuario)) = '{escaped_username}'
+           OR UPPER(TRIM(nm_usuario)) = '{escaped_username}'
     """
 
     user_row = _run_tasy_query(query_user)
     if not user_row:
-        logger.info("Tasy user '%s' was not found.", normalized_username)
-        return False
+        return None
 
-    matched_username = _extract_row_value(user_row, "nm_usuario", index=0)
-    stored_hash = _extract_row_value(user_row, "ds_senha", index=1)
-    salt = _extract_row_value(user_row, "ds_tec", index=2)
+    canonical_username = normalize_tasy_username(
+        _extract_row_value(user_row, "ds_usuario", "nm_usuario", index=0)
+    )
+    alternate_username = normalize_tasy_username(
+        _extract_row_value(user_row, "nm_usuario", index=1)
+    )
+    lookup_usernames = []
+    for candidate_username in (canonical_username, alternate_username):
+        if candidate_username and candidate_username not in lookup_usernames:
+            lookup_usernames.append(candidate_username)
+
+    stored_hash = _extract_row_value(user_row, "ds_senha", index=2)
+    salt = _extract_row_value(user_row, "ds_tec", index=3)
+
+    if not canonical_username:
+        raise TasyAuthError("Missing Tasy username in the authentication response.")
+
+    return {
+        "normalized_username": normalized_username,
+        "canonical_username": canonical_username,
+        "lookup_usernames": lookup_usernames,
+        "stored_hash": stored_hash,
+        "salt": salt,
+    }
+
+
+def authenticate_tasy_user_with_identity(username: str, password: str):
+    normalized_password = str(password or "")
+    if normalized_password == "":
+        return False, None
+
+    user_credentials = _fetch_tasy_user_credentials(username)
+    if not user_credentials:
+        logger.info(
+            "Tasy user '%s' was not found.",
+            normalize_tasy_username(username),
+        )
+        return False, None
+
+    canonical_username = user_credentials["canonical_username"]
+    stored_hash = user_credentials["stored_hash"]
+    salt = user_credentials["salt"]
 
     if not stored_hash or not salt:
         raise TasyAuthError("Missing user credentials in the Tasy authentication response.")
 
     logger.debug(
         "Matched Tasy username '%s' for normalized login '%s'.",
-        matched_username,
-        normalized_username,
+        canonical_username,
+        user_credentials["normalized_username"],
     )
 
     escaped_password = _escape_oracle_literal(normalized_password)
@@ -135,4 +172,13 @@ def authenticate_tasy_user(username: str, password: str) -> bool:
     if not computed_hash:
         raise TasyAuthError("Missing computed hash in the Tasy authentication response.")
 
-    return str(computed_hash).strip().upper() == str(stored_hash).strip().upper()
+    is_valid = str(computed_hash).strip().upper() == str(stored_hash).strip().upper()
+    return is_valid, {
+        "canonical_username": canonical_username,
+        "lookup_usernames": user_credentials["lookup_usernames"],
+    }
+
+
+def authenticate_tasy_user(username: str, password: str) -> bool:
+    is_valid, _identity = authenticate_tasy_user_with_identity(username, password)
+    return is_valid

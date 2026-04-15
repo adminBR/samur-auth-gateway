@@ -32,7 +32,7 @@ from utils.database import get_db_connection
 from users.tasy_auth import (
     TasyAuthConfigurationError,
     TasyAuthError,
-    authenticate_tasy_user,
+    authenticate_tasy_user_with_identity,
     is_tasy_auth_configured,
     normalize_tasy_username,
 )
@@ -148,6 +148,15 @@ def provision_tasy_user(cur, user_name):
     return None
 
 
+def fetch_existing_tasy_user_record(cur, usernames):
+    for username in usernames:
+        existing_user = fetch_user_record_by_login(cur, username)
+        if existing_user and existing_user["is_tasy"]:
+            return existing_user
+
+    return None
+
+
 def authenticate_user_for_login(cur, user_name, user_pass):
     user = fetch_user_record_by_login(cur, user_name)
     if user and not user["is_tasy"]:
@@ -163,14 +172,28 @@ def authenticate_user_for_login(cur, user_name, user_pass):
             "Tasy authentication is not configured for this user."
         )
 
-    is_valid_tasy_login = authenticate_tasy_user(user_name, user_pass)
+    is_valid_tasy_login, tasy_identity = authenticate_tasy_user_with_identity(
+        user_name,
+        user_pass,
+    )
     if not is_valid_tasy_login:
         return None, False
 
-    if user:
+    if tasy_identity:
+        existing_tasy_user = fetch_existing_tasy_user_record(
+            cur,
+            tasy_identity["lookup_usernames"],
+        )
+        if existing_tasy_user:
+            return existing_tasy_user, False
+
+    if user and user["is_tasy"]:
         return user, False
 
-    provisioned_user = provision_tasy_user(cur, user_name)
+    provisioned_user = provision_tasy_user(
+        cur,
+        (tasy_identity or {}).get("canonical_username") or user_name,
+    )
     if not provisioned_user:
         raise APIException({"detail": "Failed to provision the Tasy-backed user."})
 

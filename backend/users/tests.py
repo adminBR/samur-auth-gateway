@@ -5,7 +5,7 @@ from django.test import SimpleTestCase
 from rest_framework.test import APIClient, APIRequestFactory
 
 from users.auth import JWTCustomAuth
-from users.tasy_auth import authenticate_tasy_user
+from users.tasy_auth import authenticate_tasy_user, authenticate_tasy_user_with_identity
 from utils.jwt import (
     TOKEN_TYPE_ACCESS,
     create_access_token,
@@ -19,12 +19,12 @@ class AuthFlowTests(SimpleTestCase):
     def setUp(self):
         self.client = APIClient()
 
-    @patch("users.views.authenticate_tasy_user")
+    @patch("users.views.authenticate_tasy_user_with_identity")
     @patch("users.views.get_db_connection")
     def test_login_endpoint_authenticates_local_postgres_user(
         self,
         mock_get_db_connection,
-        mock_authenticate_tasy_user,
+        mock_authenticate_tasy_user_with_identity,
     ):
         conn = mock_get_db_connection.return_value
         cur = conn.cursor.return_value
@@ -44,21 +44,31 @@ class AuthFlowTests(SimpleTestCase):
         self.assertFalse(response.data["isTasy"])
         self.assertIn(settings.AUTH_ACCESS_TOKEN_COOKIE_NAME, response.cookies)
         self.assertIn(settings.AUTH_REFRESH_TOKEN_COOKIE_NAME, response.cookies)
-        mock_authenticate_tasy_user.assert_not_called()
+        mock_authenticate_tasy_user_with_identity.assert_not_called()
         conn.commit.assert_not_called()
 
     @patch("users.views.is_tasy_auth_configured", return_value=True)
-    @patch("users.views.authenticate_tasy_user", return_value=True)
+    @patch(
+        "users.views.authenticate_tasy_user_with_identity",
+        return_value=(
+            True,
+            {
+                "canonical_username": "TASY.USER",
+                "lookup_usernames": ["TASY.USER"],
+            },
+        ),
+    )
     @patch("users.views.get_db_connection")
     def test_login_endpoint_authenticates_existing_tasy_user_without_password_format_validation(
         self,
         mock_get_db_connection,
-        mock_authenticate_tasy_user,
+        mock_authenticate_tasy_user_with_identity,
         _mock_is_tasy_auth_configured,
     ):
         conn = mock_get_db_connection.return_value
         cur = conn.cursor.return_value
         cur.fetchone.side_effect = [
+            (8, "tasy.user", "TASY", False, "1", True),
             (8, "tasy.user", "TASY", False, "1", True),
         ]
 
@@ -71,21 +81,31 @@ class AuthFlowTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["isTasy"])
         self.assertEqual(response.data["user"], {"id": 8, "username": "TASY.USER"})
-        mock_authenticate_tasy_user.assert_called_once_with("TaSy.User", "123")
+        mock_authenticate_tasy_user_with_identity.assert_called_once_with("TaSy.User", "123")
         conn.commit.assert_not_called()
 
     @patch("users.views.is_tasy_auth_configured", return_value=True)
-    @patch("users.views.authenticate_tasy_user", return_value=True)
+    @patch(
+        "users.views.authenticate_tasy_user_with_identity",
+        return_value=(
+            True,
+            {
+                "canonical_username": "NEW.TASY",
+                "lookup_usernames": ["NEW.TASY"],
+            },
+        ),
+    )
     @patch("users.views.get_db_connection")
     def test_login_endpoint_provisions_tasy_user_when_missing_locally(
         self,
         mock_get_db_connection,
-        mock_authenticate_tasy_user,
+        mock_authenticate_tasy_user_with_identity,
         _mock_is_tasy_auth_configured,
     ):
         conn = mock_get_db_connection.return_value
         cur = conn.cursor.return_value
         cur.fetchone.side_effect = [
+            None,
             None,
             (12, "new.tasy", "TASY", False, "1", True),
         ]
@@ -99,7 +119,7 @@ class AuthFlowTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["user"], {"id": 12, "username": "NEW.TASY"})
         self.assertTrue(response.data["isTasy"])
-        mock_authenticate_tasy_user.assert_called_once_with("new.tasy", "456")
+        mock_authenticate_tasy_user_with_identity.assert_called_once_with("new.tasy", "456")
         conn.commit.assert_called_once()
         self.assertTrue(
             any(
@@ -116,12 +136,15 @@ class AuthFlowTests(SimpleTestCase):
         )
 
     @patch("users.views.is_tasy_auth_configured", return_value=True)
-    @patch("users.views.authenticate_tasy_user", return_value=False)
+    @patch(
+        "users.views.authenticate_tasy_user_with_identity",
+        return_value=(False, None),
+    )
     @patch("users.views.get_db_connection")
     def test_login_endpoint_returns_invalid_credentials_when_tasy_auth_fails(
         self,
         mock_get_db_connection,
-        mock_authenticate_tasy_user,
+        mock_authenticate_tasy_user_with_identity,
         _mock_is_tasy_auth_configured,
     ):
         conn = mock_get_db_connection.return_value
@@ -139,8 +162,51 @@ class AuthFlowTests(SimpleTestCase):
             response.data["detail"],
             "User not found or invalid credentials.",
         )
-        mock_authenticate_tasy_user.assert_called_once_with("missing.user", "123")
+        mock_authenticate_tasy_user_with_identity.assert_called_once_with("missing.user", "123")
         conn.commit.assert_not_called()
+
+    @patch("users.views.is_tasy_auth_configured", return_value=True)
+    @patch(
+        "users.views.authenticate_tasy_user_with_identity",
+        return_value=(
+            True,
+            {
+                "canonical_username": "LOGIN.USER",
+                "lookup_usernames": ["LOGIN.USER", "DISPLAY USER"],
+            },
+        ),
+    )
+    @patch("users.views.get_db_connection")
+    def test_login_endpoint_reuses_existing_tasy_shadow_user_found_by_canonical_login(
+        self,
+        mock_get_db_connection,
+        mock_authenticate_tasy_user_with_identity,
+        _mock_is_tasy_auth_configured,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.side_effect = [
+            None,
+            (15, "login.user", "TASY", False, "1", True),
+        ]
+
+        response = self.client.post(
+            "/api_gateway/v1/users/login/",
+            {"user_name": "display user", "user_pass": "456"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"], {"id": 15, "username": "LOGIN.USER"})
+        self.assertTrue(response.data["isTasy"])
+        mock_authenticate_tasy_user_with_identity.assert_called_once_with("display user", "456")
+        conn.commit.assert_not_called()
+        self.assertFalse(
+            any(
+                "INSERT INTO usr_info" in call.args[0]
+                for call in cur.execute.call_args_list
+            )
+        )
 
     @patch(
         "users.views.fetch_user_auth_context",
@@ -261,7 +327,8 @@ class TasyAuthTests(SimpleTestCase):
     ):
         mock_run_tasy_query.side_effect = [
             {
-                "nm_usuario": "MiXeD.User",
+                "ds_usuario": "MiXeD.User",
+                "nm_usuario": "Mixed User",
                 "ds_senha": "HASH123",
                 "ds_tec": "salt",
             },
@@ -272,5 +339,32 @@ class TasyAuthTests(SimpleTestCase):
 
         self.assertTrue(is_valid)
         user_lookup_query = mock_run_tasy_query.call_args_list[0].args[0]
+        self.assertIn("UPPER(TRIM(ds_usuario))", user_lookup_query)
         self.assertIn("UPPER(TRIM(nm_usuario))", user_lookup_query)
         self.assertIn("= 'MIXED.USER'", user_lookup_query)
+
+    @patch("users.tasy_auth._run_tasy_query")
+    def test_authenticate_tasy_user_with_identity_returns_canonical_and_alias_logins(
+        self,
+        mock_run_tasy_query,
+    ):
+        mock_run_tasy_query.side_effect = [
+            {
+                "ds_usuario": "login.user",
+                "nm_usuario": "Display User",
+                "ds_senha": "HASH123",
+                "ds_tec": "salt",
+            },
+            {"computed_hash": "HASH123"},
+        ]
+
+        is_valid, identity = authenticate_tasy_user_with_identity("display user", "abc123")
+
+        self.assertTrue(is_valid)
+        self.assertEqual(
+            identity,
+            {
+                "canonical_username": "LOGIN.USER",
+                "lookup_usernames": ["LOGIN.USER", "DISPLAY USER"],
+            },
+        )
