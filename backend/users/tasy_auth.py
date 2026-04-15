@@ -79,7 +79,9 @@ def _run_tasy_query(query: str):
         data = response.json()
     except (requests.RequestException, ValueError) as exc:
         logger.error("Tasy authentication bridge request failed: %s", exc)
-        raise TasyAuthError("Failed to contact the Tasy authentication service.") from exc
+        raise TasyAuthError(
+            "Failed to contact the Tasy authentication service."
+        ) from exc
 
     rows = data.get("rows") or data.get("data") or []
     return rows[0] if rows else None
@@ -92,9 +94,9 @@ def _fetch_tasy_user_credentials(username: str):
 
     escaped_username = _escape_oracle_literal(normalized_username)
     query_user = f"""
-        SELECT ds_usuario, nm_usuario, ds_senha, ds_tec
+        SELECT ds_login, nm_usuario, ds_senha, ds_tec
         FROM usuario
-        WHERE UPPER(TRIM(ds_usuario)) = '{escaped_username}'
+        WHERE UPPER(TRIM(ds_login)) = '{escaped_username}'
            OR UPPER(TRIM(nm_usuario)) = '{escaped_username}'
     """
 
@@ -103,7 +105,7 @@ def _fetch_tasy_user_credentials(username: str):
         return None
 
     canonical_username = normalize_tasy_username(
-        _extract_row_value(user_row, "ds_usuario", "nm_usuario", index=0)
+        _extract_row_value(user_row, "ds_login", "nm_usuario", index=0)
     )
     alternate_username = normalize_tasy_username(
         _extract_row_value(user_row, "nm_usuario", index=1)
@@ -146,7 +148,9 @@ def authenticate_tasy_user_with_identity(username: str, password: str):
     salt = user_credentials["salt"]
 
     if not stored_hash or not salt:
-        raise TasyAuthError("Missing user credentials in the Tasy authentication response.")
+        raise TasyAuthError(
+            "Missing user credentials in the Tasy authentication response."
+        )
 
     logger.debug(
         "Matched Tasy username '%s' for normalized login '%s'.",
@@ -170,7 +174,9 @@ def authenticate_tasy_user_with_identity(username: str, password: str):
 
     computed_hash = _extract_row_value(hash_row, "computed_hash", index=0)
     if not computed_hash:
-        raise TasyAuthError("Missing computed hash in the Tasy authentication response.")
+        raise TasyAuthError(
+            "Missing computed hash in the Tasy authentication response."
+        )
 
     is_valid = str(computed_hash).strip().upper() == str(stored_hash).strip().upper()
     return is_valid, {

@@ -81,7 +81,9 @@ class AuthFlowTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["isTasy"])
         self.assertEqual(response.data["user"], {"id": 8, "username": "TASY.USER"})
-        mock_authenticate_tasy_user_with_identity.assert_called_once_with("TaSy.User", "123")
+        mock_authenticate_tasy_user_with_identity.assert_called_once_with(
+            "TaSy.User", "123"
+        )
         conn.commit.assert_not_called()
 
     @patch("users.views.is_tasy_auth_configured", return_value=True)
@@ -119,7 +121,9 @@ class AuthFlowTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["user"], {"id": 12, "username": "NEW.TASY"})
         self.assertTrue(response.data["isTasy"])
-        mock_authenticate_tasy_user_with_identity.assert_called_once_with("new.tasy", "456")
+        mock_authenticate_tasy_user_with_identity.assert_called_once_with(
+            "new.tasy", "456"
+        )
         conn.commit.assert_called_once()
         self.assertTrue(
             any(
@@ -162,7 +166,9 @@ class AuthFlowTests(SimpleTestCase):
             response.data["detail"],
             "User not found or invalid credentials.",
         )
-        mock_authenticate_tasy_user_with_identity.assert_called_once_with("missing.user", "123")
+        mock_authenticate_tasy_user_with_identity.assert_called_once_with(
+            "missing.user", "123"
+        )
         conn.commit.assert_not_called()
 
     @patch("users.views.is_tasy_auth_configured", return_value=True)
@@ -199,7 +205,9 @@ class AuthFlowTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["user"], {"id": 15, "username": "LOGIN.USER"})
         self.assertTrue(response.data["isTasy"])
-        mock_authenticate_tasy_user_with_identity.assert_called_once_with("display user", "456")
+        mock_authenticate_tasy_user_with_identity.assert_called_once_with(
+            "display user", "456"
+        )
         conn.commit.assert_not_called()
         self.assertFalse(
             any(
@@ -216,7 +224,9 @@ class AuthFlowTests(SimpleTestCase):
             "jwt_expiration": "1",
         },
     )
-    def test_refresh_endpoint_returns_new_access_token_and_sets_cookies(self, _mock_context):
+    def test_refresh_endpoint_returns_new_access_token_and_sets_cookies(
+        self, _mock_context
+    ):
         refresh_token = create_refresh_token(1, "alice")
 
         response = self.client.post(
@@ -327,7 +337,7 @@ class TasyAuthTests(SimpleTestCase):
     ):
         mock_run_tasy_query.side_effect = [
             {
-                "ds_usuario": "MiXeD.User",
+                "ds_login": "MiXeD.User",
                 "nm_usuario": "Mixed User",
                 "ds_senha": "HASH123",
                 "ds_tec": "salt",
@@ -339,7 +349,7 @@ class TasyAuthTests(SimpleTestCase):
 
         self.assertTrue(is_valid)
         user_lookup_query = mock_run_tasy_query.call_args_list[0].args[0]
-        self.assertIn("UPPER(TRIM(ds_usuario))", user_lookup_query)
+        self.assertIn("UPPER(TRIM(ds_login))", user_lookup_query)
         self.assertIn("UPPER(TRIM(nm_usuario))", user_lookup_query)
         self.assertIn("= 'MIXED.USER'", user_lookup_query)
 
@@ -350,7 +360,7 @@ class TasyAuthTests(SimpleTestCase):
     ):
         mock_run_tasy_query.side_effect = [
             {
-                "ds_usuario": "login.user",
+                "ds_login": "login.user",
                 "nm_usuario": "Display User",
                 "ds_senha": "HASH123",
                 "ds_tec": "salt",
@@ -358,7 +368,9 @@ class TasyAuthTests(SimpleTestCase):
             {"computed_hash": "HASH123"},
         ]
 
-        is_valid, identity = authenticate_tasy_user_with_identity("display user", "abc123")
+        is_valid, identity = authenticate_tasy_user_with_identity(
+            "display user", "abc123"
+        )
 
         self.assertTrue(is_valid)
         self.assertEqual(
