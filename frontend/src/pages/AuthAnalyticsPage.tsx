@@ -1,41 +1,122 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Activity,
   ArrowLeft,
+  BarChart3,
   CalendarRange,
+  Clock3,
   RefreshCw,
+  Server,
   ShieldCheck,
+  Users,
   X,
 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { getMe } from "../api/axios";
 import {
   getAuthAnalytics,
   type AnalyticsBucket,
+  type AnalyticsDetailRow,
   type AuthAnalyticsResponse,
   type ServiceAnalyticsSeries,
 } from "../api/analytics";
 
-type SelectedBucket = {
-  scope: "global";
+type ChartRow = {
   bucketStart: string;
+  bucketEnd: string;
+  count: number;
+  details: AnalyticsDetailRow[];
+  label: string;
+  shortLabel: string;
+  sourceBucketStarts: string[];
 };
 
-interface SvgBarChartProps {
-  buckets: AnalyticsBucket[];
-  height?: number;
-  selectedBucketStart?: string | null;
-  onSelectBucket?: (bucketStart: string) => void;
-  interactive?: boolean;
-  showLabels?: boolean;
-  showValues?: boolean;
-  emphasizeMaxOnly?: boolean;
+type BucketInsights = {
+  uniqueUsers: number;
+  uniqueIps: number;
+  topUser: string | null;
+};
+
+interface ModalFrameProps {
+  children: ReactNode;
+  maxWidthClassName?: string;
+  onClose: () => void;
+  title: string;
+}
+
+interface StatCardProps {
+  icon: ReactNode;
+  label: string;
+  tone?: "brand" | "muted";
+  value: number;
+}
+
+interface PresetButtonProps {
+  isActive: boolean;
+  isBusy: boolean;
+  label: string;
+  onClick: () => void;
+}
+
+interface DetailsTableProps {
+  details: AnalyticsDetailRow[];
+  emptyMessage: string;
+}
+
+interface TrendTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload?: ChartRow;
+  }>;
+  valueLabel?: string;
+}
+
+interface GlobalAccessChartProps {
+  isBusy: boolean;
+  onSelectBucket: (bucketStart: string) => void;
+  rows: ChartRow[];
+}
+
+interface ServiceSparklineProps {
+  muted?: boolean;
+  rows: ChartRow[];
+}
+
+interface GlobalDetailsModalProps {
+  bucket: ChartRow | null;
+  onClose: () => void;
 }
 
 interface ServiceDetailsModalProps {
   service: ServiceAnalyticsSeries | null;
   onClose: () => void;
 }
+
+const PRESET_OPTIONS = [
+  { hours: 24, label: "Ultimas 24 horas" },
+  { hours: 72, label: "Ultimas 72 horas" },
+  { hours: 168, label: "Ultimos 7 dias" },
+] as const;
+
+const FILTER_DEBOUNCE_MS = 650;
+const MAX_CHART_NODES = 40;
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
@@ -56,24 +137,70 @@ function getDefaultRange() {
 }
 
 function parseDateTimeLocalValue(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function formatBucketLabel(bucketStart: string, compact = false) {
+function formatBucketLabel(bucketStart: string) {
   const bucketDate = new Date(bucketStart);
 
   return bucketDate.toLocaleString("pt-BR", {
-    day: compact ? undefined : "2-digit",
-    month: compact ? undefined : "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
+function formatDateLabel(bucketStart: string) {
+  const bucketDate = new Date(bucketStart);
+
+  return bucketDate.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function formatAxisLabel(bucketStart: string) {
   const bucketDate = new Date(bucketStart);
+
   return `${pad(bucketDate.getHours())}:${pad(bucketDate.getMinutes())}`;
+}
+
+function formatRangeLabel(start: string, end: string) {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  return `${startDate.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  })} ${formatAxisLabel(start)} - ${endDate.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  })} ${formatAxisLabel(end)}`;
+}
+
+function resolvePresetHours(rangeStart: string, rangeEnd: string) {
+  const parsedStart = parseDateTimeLocalValue(rangeStart);
+  const parsedEnd = parseDateTimeLocalValue(rangeEnd);
+
+  if (!parsedStart || !parsedEnd) {
+    return null;
+  }
+
+  const diffHours = Math.round(
+    (parsedEnd.getTime() - parsedStart.getTime()) / (60 * 60 * 1000),
+  );
+
+  return PRESET_OPTIONS.some((preset) => preset.hours === diffHours)
+    ? diffHours
+    : null;
 }
 
 function findLatestBucketWithData(
@@ -82,317 +209,627 @@ function findLatestBucketWithData(
   return [...buckets].reverse().find((bucket) => bucket.count > 0) ?? null;
 }
 
-function findDefaultSelection(
-  response: AuthAnalyticsResponse,
-): SelectedBucket | null {
-  const latestWithData =
-    findLatestBucketWithData(response.global.buckets) ??
-    [...response.global.buckets].reverse()[0] ??
-    null;
+function aggregateDetailRows(details: AnalyticsDetailRow[]) {
+  const groupedDetails = new Map<string, AnalyticsDetailRow>();
 
-  if (!latestWithData) {
-    return null;
+  details.forEach((detail) => {
+    const key = `${detail.user_id}::${detail.user_name}::${detail.client_ip}`;
+    const current = groupedDetails.get(key);
+
+    if (current) {
+      current.access_count += detail.access_count;
+      return;
+    }
+
+    groupedDetails.set(key, { ...detail });
+  });
+
+  return [...groupedDetails.values()].sort((left, right) => {
+    if (right.access_count !== left.access_count) {
+      return right.access_count - left.access_count;
+    }
+
+    return left.user_id.localeCompare(right.user_id);
+  });
+}
+
+function resolveAggregationHours(bucketCount: number) {
+  if (bucketCount <= MAX_CHART_NODES) {
+    return 1;
   }
 
+  if (Math.ceil(bucketCount / 6) <= MAX_CHART_NODES) {
+    return 6;
+  }
+
+  if (Math.ceil(bucketCount / 12) <= MAX_CHART_NODES) {
+    return 12;
+  }
+
+  const rawStep = Math.ceil(bucketCount / MAX_CHART_NODES);
+  return Math.max(24, Math.ceil(rawStep / 24) * 24);
+}
+
+function formatChartRowLabel(
+  bucketStart: string,
+  bucketEnd: string,
+  aggregationHours: number,
+) {
+  if (aggregationHours === 1) {
+    return formatBucketLabel(bucketStart);
+  }
+
+  if (aggregationHours < 24) {
+    return `${formatBucketLabel(bucketStart)} - ${formatAxisLabel(bucketEnd)}`;
+  }
+
+  if (aggregationHours === 24) {
+    return formatDateLabel(bucketStart);
+  }
+
+  return `${formatDateLabel(bucketStart)} - ${formatDateLabel(bucketEnd)}`;
+}
+
+function formatChartShortLabel(
+  bucketStart: string,
+  aggregationHours: number,
+  totalBuckets: number,
+) {
+  const bucketDate = new Date(bucketStart);
+
+  if (aggregationHours === 1 && totalBuckets <= 24) {
+    return formatAxisLabel(bucketStart);
+  }
+
+  if (aggregationHours < 24) {
+    return `${bucketDate.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+    })} ${pad(bucketDate.getHours())}h`;
+  }
+
+  return bucketDate.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+function buildChartRows(buckets: AnalyticsBucket[]) {
+  const aggregationHours = resolveAggregationHours(buckets.length);
+  const chartRows: ChartRow[] = [];
+
+  for (let index = 0; index < buckets.length; index += aggregationHours) {
+    const sourceBuckets = buckets.slice(index, index + aggregationHours);
+    const bucketStart = sourceBuckets[0]?.bucket_start;
+
+    if (!bucketStart) {
+      continue;
+    }
+
+    const bucketEnd =
+      sourceBuckets[sourceBuckets.length - 1]?.bucket_start ?? bucketStart;
+
+    chartRows.push({
+      bucketStart,
+      bucketEnd,
+      count: sourceBuckets.reduce((sum, bucket) => sum + bucket.count, 0),
+      details: aggregateDetailRows(
+        sourceBuckets.flatMap((bucket) => bucket.details),
+      ),
+      label: formatChartRowLabel(bucketStart, bucketEnd, aggregationHours),
+      shortLabel: formatChartShortLabel(
+        bucketStart,
+        aggregationHours,
+        buckets.length,
+      ),
+      sourceBucketStarts: sourceBuckets.map((bucket) => bucket.bucket_start),
+    });
+  }
+
+  return chartRows;
+}
+
+function getBucketInsights(details: AnalyticsDetailRow[]): BucketInsights {
+  const uniqueUsers = new Set(details.map((detail) => detail.user_id)).size;
+  const uniqueIps = new Set(details.map((detail) => detail.client_ip)).size;
+  const topEntry = [...details].sort(
+    (left, right) => right.access_count - left.access_count,
+  )[0];
+
   return {
-    scope: "global",
-    bucketStart: latestWithData.bucket_start,
+    uniqueUsers,
+    uniqueIps,
+    topUser: topEntry?.user_name || topEntry?.user_id || null,
   };
 }
 
-function SvgBarChart({
-  buckets,
-  height = 280,
-  selectedBucketStart = null,
-  onSelectBucket,
-  interactive = false,
-  showLabels = true,
-  showValues = true,
-  emphasizeMaxOnly = false,
-}: SvgBarChartProps) {
-  const width = 1000;
-  const leftPadding = 46;
-  const rightPadding = 12;
-  const topPadding = 16;
-  const bottomPadding = showLabels ? 34 : 12;
-  const chartWidth = width - leftPadding - rightPadding;
-  const chartHeight = height - topPadding - bottomPadding;
-  const maxCount = Math.max(...buckets.map((bucket) => bucket.count), 1);
-  const bucketCount = Math.max(buckets.length, 1);
-  const gap = Math.min(chartWidth * 0.01, 10);
-  const rawBarWidth = chartWidth / bucketCount - gap;
-  const barWidth = Math.max(rawBarWidth, 6);
-  const labelStep = Math.max(1, Math.ceil(bucketCount / 8));
-  const gridValues = [0, 0.25, 0.5, 0.75, 1];
+function getGlobalModalBucket(
+  rows: ChartRow[],
+  selectedBucketStart: string | null,
+) {
+  if (!selectedBucketStart) {
+    return null;
+  }
+
+  return rows.find((row) => row.bucketStart === selectedBucketStart) ?? null;
+}
+
+function TrendTooltip({
+  active,
+  payload,
+  valueLabel = "acessos",
+}: TrendTooltipProps) {
+  const row = payload?.[0]?.payload as ChartRow | undefined;
+
+  if (!active || !row) {
+    return null;
+  }
 
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="block h-auto w-full"
-      role="img"
-      aria-label="Grafico de barras de acessos por hora"
-    >
-      <defs>
-        <linearGradient id="analytics-bar-gradient" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#5faf9f" />
-          <stop offset="100%" stopColor="#2e7675" />
-        </linearGradient>
-        <linearGradient
-          id="analytics-selected-gradient"
-          x1="0"
-          x2="0"
-          y1="0"
-          y2="1"
-        >
-          <stop offset="0%" stopColor="#2e7675" />
-          <stop offset="100%" stopColor="#1f4d4c" />
-        </linearGradient>
-      </defs>
+    <div className="rounded-[18px] border border-[#d8e5e0] bg-white px-3 py-2 shadow-[0_14px_36px_rgba(31,77,76,0.14)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#64807a]">
+        {row.label}
+      </p>
+      <p className="mt-1 text-sm font-bold text-[#203735]">
+        {row.count} {valueLabel}
+      </p>
+    </div>
+  );
+}
 
-      {gridValues.map((value) => {
-        const y = topPadding + chartHeight - chartHeight * value;
-        const labelValue = Math.round(maxCount * value);
-
-        return (
-          <g key={value}>
-            <line
-              x1={leftPadding}
-              x2={width - rightPadding}
-              y1={y}
-              y2={y}
-              stroke="#dce8e3"
-              strokeDasharray="4 6"
-            />
-            <text
-              x={leftPadding - 8}
-              y={y + 4}
-              fill="#698480"
-              fontSize="11"
-              textAnchor="end"
-            >
-              {labelValue}
-            </text>
-          </g>
-        );
-      })}
-
-      <line
-        x1={leftPadding}
-        x2={width - rightPadding}
-        y1={topPadding + chartHeight}
-        y2={topPadding + chartHeight}
-        stroke="#cfe0da"
-      />
-
-      {buckets.map((bucket, index) => {
-        const x = leftPadding + index * (chartWidth / bucketCount) + gap / 2;
-        const scaledHeight =
-          bucket.count > 0 ? (bucket.count / maxCount) * chartHeight : 0;
-        const barHeight = Math.max(scaledHeight, bucket.count > 0 ? 8 : 2);
-        const y = topPadding + chartHeight - barHeight;
-        const isSelected = bucket.bucket_start === selectedBucketStart;
-        const labelVisible =
-          showLabels &&
-          (index % labelStep === 0 || index === buckets.length - 1);
-        const shouldShowValue =
-          showValues &&
-          (!emphasizeMaxOnly || bucket.count === maxCount || isSelected);
-
-        const content = (
-          <g key={bucket.bucket_start}>
-            <rect
-              x={x}
-              y={y}
-              width={barWidth}
-              height={barHeight}
-              rx="8"
-              fill={
-                isSelected
-                  ? "url(#analytics-selected-gradient)"
-                  : "url(#analytics-bar-gradient)"
-              }
-              opacity={interactive && !isSelected ? 0.86 : 1}
-            />
-            {isSelected && (
-              <rect
-                x={x - 1}
-                y={y - 1}
-                width={barWidth + 2}
-                height={barHeight + 2}
-                rx="9"
-                fill="none"
-                stroke="#163b3a"
-                strokeWidth="2"
-              />
-            )}
-            {shouldShowValue && (
-              <text
-                x={x + barWidth / 2}
-                y={Math.max(y - 8, 12)}
-                fill="#4e6865"
-                fontSize="11"
-                fontWeight="700"
-                textAnchor="middle"
-              >
-                {bucket.count}
-              </text>
-            )}
-            {labelVisible && (
-              <text
-                x={x + barWidth / 2}
-                y={height - 12}
-                fill="#617b77"
-                fontSize="11"
-                textAnchor="middle"
-              >
-                {formatAxisLabel(bucket.bucket_start)}
-              </text>
-            )}
-          </g>
-        );
-
-        if (!interactive || !onSelectBucket) {
-          return content;
-        }
-
-        return (
-          <g
-            key={bucket.bucket_start}
-            onClick={() => onSelectBucket(bucket.bucket_start)}
-            className="cursor-pointer"
+function ModalFrame({
+  children,
+  maxWidthClassName = "max-w-6xl",
+  onClose,
+  title,
+}: ModalFrameProps) {
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#0f172a]/55 p-4 backdrop-blur-sm">
+      <div
+        className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-[30px] border border-[#d7e4de] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] ${maxWidthClassName}`}
+      >
+        <div className="flex items-center justify-between gap-4 border-b border-[#e3ede9] px-5 py-4 sm:px-6">
+          <h2 className="font-dashboard-display text-[1.32rem] font-bold text-[#203735]">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="appearance-none rounded-full border border-[#d7e4de] bg-[#f8fcfa] p-2 text-[#58726f] outline-none ring-0 transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none active:ring-0"
+            aria-label="Fechar modal"
           >
-            <rect
-              x={x - 4}
-              y={topPadding}
-              width={barWidth + 8}
-              height={chartHeight + bottomPadding}
-              fill="transparent"
-            />
-            {content}
-          </g>
-        );
-      })}
-    </svg>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ icon, label, tone = "brand", value }: StatCardProps) {
+  const toneClassName =
+    tone === "brand"
+      ? "border-[#d7e4de] bg-white/92"
+      : "border-[#dde8e3] bg-[#fbfdfc]";
+
+  return (
+    <div
+      className={`flex h-full flex-col justify-between rounded-[24px] border p-4 shadow-[0_16px_40px_rgba(34,52,50,0.06)] ${toneClassName}`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#2e7675]/10 text-[#2e7675]">
+          {icon}
+        </div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
+          {label}
+        </p>
+      </div>
+      <p className="mt-4 font-dashboard-display text-[1.9rem] font-bold leading-none text-[#203735]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function PresetButton({
+  isActive,
+  isBusy,
+  label,
+  onClick,
+}: PresetButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isBusy}
+      className={`appearance-none rounded-full border px-3.5 py-2 text-[11px] font-semibold outline-none ring-0 transition-colors focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none active:ring-0 ${
+        isActive
+          ? "border-[#2e7675]/25 bg-[#2e7675] text-white"
+          : "border-[#d8e5e0] bg-[#f4faf7] text-[#315451] hover:border-[#2e7675]/30 hover:text-[#2e7675]"
+      } disabled:cursor-not-allowed disabled:opacity-70`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function DetailsTable({ details, emptyMessage }: DetailsTableProps) {
+  if (!details.length) {
+    return (
+      <p className="rounded-[18px] border border-[#e2ece8] bg-[#f8fcfa] px-4 py-5 text-sm font-medium text-[#5a7572]">
+        {emptyMessage}
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-[#e1ebe7]">
+      <div className="overflow-x-auto">
+        <table className="min-w-[720px] w-full border-collapse">
+          <thead>
+            <tr className="border-b border-[#e1ebe7] bg-[#f7fbf9] text-left text-[11px] font-bold uppercase tracking-[0.12em] text-[#58726f]">
+              <th className="px-4 py-3">User ID</th>
+              <th className="px-4 py-3">User name</th>
+              <th className="px-4 py-3">IP</th>
+              <th className="px-4 py-3">Acessos</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#ecf2ef] bg-white">
+            {details.map((detail, index) => (
+              <tr key={`${detail.user_id}-${detail.client_ip}-${index}`}>
+                <td className="px-4 py-3 text-sm font-semibold text-[#29403e]">
+                  {detail.user_id}
+                </td>
+                <td className="px-4 py-3 text-sm text-[#29403e]">
+                  {detail.user_name}
+                </td>
+                <td className="font-dashboard-mono px-4 py-3 text-[13px] text-[#496764]">
+                  {detail.client_ip}
+                </td>
+                <td className="px-4 py-3 text-sm font-semibold text-[#29403e]">
+                  {detail.access_count}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function GlobalAccessChart({
+  isBusy,
+  onSelectBucket,
+  rows,
+}: GlobalAccessChartProps) {
+  return (
+    <div className="relative h-[260px] w-full sm:h-[320px]">
+      {isBusy && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-end">
+          <div className="rounded-full border border-[#d7e4de] bg-white/92 px-3 py-1 text-[11px] font-semibold text-[#476361] shadow-sm">
+            Atualizando...
+          </div>
+        </div>
+      )}
+
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          accessibilityLayer={false}
+          data={rows}
+          barCategoryGap={rows.length > 24 ? 6 : 12}
+          margin={{ top: 16, right: 8, left: -18, bottom: 0 }}
+        >
+          <CartesianGrid
+            stroke="#d9e6e1"
+            strokeDasharray="4 6"
+            vertical={false}
+          />
+          <XAxis
+            axisLine={false}
+            dataKey="shortLabel"
+            minTickGap={16}
+            tick={{ fill: "#698480", fontSize: 11 }}
+            tickLine={false}
+          />
+          <YAxis
+            allowDecimals={false}
+            axisLine={false}
+            tick={{ fill: "#698480", fontSize: 11 }}
+            tickLine={false}
+            width={34}
+          />
+          <Tooltip
+            content={<TrendTooltip />}
+            cursor={{ fill: "rgba(95, 122, 118, 0.06)" }}
+          />
+          <Bar
+            activeBar={false}
+            dataKey="count"
+            animationDuration={260}
+            onClick={(value) => {
+              const bucketStart =
+                (value as { payload?: ChartRow } | undefined)?.payload
+                  ?.bucketStart ?? null;
+
+              if (bucketStart) {
+                onSelectBucket(bucketStart);
+              }
+            }}
+            radius={[10, 10, 4, 4]}
+            focusable={false}
+            stroke="none"
+            tabIndex={-1}
+          >
+            {rows.map((row) => (
+              <Cell
+                key={row.bucketStart}
+                cursor="pointer"
+                fill="#5faf9f"
+                focusable={false}
+                stroke="none"
+                tabIndex={-1}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ServiceSparkline({ muted = false, rows }: ServiceSparklineProps) {
+  const fillColor = muted ? "#c7d9d3" : "#63b2a1";
+
+  return (
+    <div className="h-[88px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          accessibilityLayer={false}
+          data={rows}
+          barCategoryGap={rows.length > 16 ? 4 : 8}
+          margin={{ top: 4, right: 0, left: 0, bottom: 2 }}
+        >
+          <Tooltip
+            content={<TrendTooltip valueLabel="acessos" />}
+            cursor={false}
+          />
+          <Bar
+            activeBar={false}
+            dataKey="count"
+            animationDuration={220}
+            fill={fillColor}
+            focusable={false}
+            radius={[6, 6, 2, 2]}
+            stroke="none"
+            tabIndex={-1}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function GlobalDetailsModal({ bucket, onClose }: GlobalDetailsModalProps) {
+  if (!bucket) {
+    return null;
+  }
+
+  const insights = getBucketInsights(bucket.details);
+
+  return (
+    <ModalFrame
+      maxWidthClassName="max-w-5xl"
+      onClose={onClose}
+      title={bucket.label}
+    >
+      <div className="space-y-5">
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+            Global
+          </span>
+          <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+            {bucket.count} acessos
+          </span>
+          <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+            {insights.uniqueUsers} usuarios
+          </span>
+          <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+            {insights.uniqueIps} IPs
+          </span>
+          {insights.topUser && (
+            <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+              Top user: {insights.topUser}
+            </span>
+          )}
+        </div>
+
+        <DetailsTable
+          details={bucket.details}
+          emptyMessage="Nao ha detalhes de acesso para este horario."
+        />
+      </div>
+    </ModalFrame>
   );
 }
 
 function ServiceDetailsModal({ service, onClose }: ServiceDetailsModalProps) {
-  const defaultBucket = useMemo(
-    () => (service ? findLatestBucketWithData(service.buckets) : null),
+  const chartRows = useMemo(
+    () => buildChartRows(service?.buckets ?? []),
     [service],
   );
+  const defaultBucket = useMemo(() => {
+    if (!service) {
+      return null;
+    }
+
+    return (
+      findLatestBucketWithData(service.buckets) ??
+      service.buckets[service.buckets.length - 1] ??
+      null
+    );
+  }, [service]);
+  const defaultChartRow = useMemo(() => {
+    if (!defaultBucket) {
+      return chartRows[chartRows.length - 1] ?? null;
+    }
+
+    return (
+      chartRows.find((row) =>
+        row.sourceBucketStarts.includes(defaultBucket.bucket_start),
+      ) ??
+      chartRows[chartRows.length - 1] ??
+      null
+    );
+  }, [chartRows, defaultBucket]);
   const [selectedBucketStart, setSelectedBucketStart] = useState<string | null>(
-    defaultBucket?.bucket_start ?? null,
+    defaultChartRow?.bucketStart ?? null,
   );
 
   useEffect(() => {
-    setSelectedBucketStart(defaultBucket?.bucket_start ?? null);
-  }, [defaultBucket]);
+    setSelectedBucketStart(defaultChartRow?.bucketStart ?? null);
+  }, [defaultChartRow]);
 
   if (!service) {
     return null;
   }
 
   const selectedBucket =
-    service.buckets.find(
-      (bucket) => bucket.bucket_start === selectedBucketStart,
-    ) ?? defaultBucket;
+    chartRows.find((row) => row.bucketStart === selectedBucketStart) ??
+    defaultChartRow;
+  const selectedInsights = getBucketInsights(selectedBucket?.details ?? []);
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#0f172a]/55 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] border border-[#d7e4de] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
-        <div className="flex items-start justify-between gap-4 border-b border-[#e3ede9] px-5 py-4 sm:px-6">
-          <div>
-            <p className="dashboard-label text-[10px] text-[#2e7675]">
-              Detalhes do servico
-            </p>
-            <h2 className="font-dashboard-display mt-2 text-[1.55rem] font-bold text-[#203735]">
-              {service.service_name}
-            </h2>
-            <p className="mt-2 text-sm text-[#5b7672]">
-              ID {service.service_id} - {service.total_count} acessos no
-              intervalo atual
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-[#d7e4de] bg-[#f8fcfa] p-2 text-[#58726f] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
-            aria-label="Fechar modal"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-          <div className="rounded-[26px] border border-[#e1ebe7] bg-[linear-gradient(180deg,#fbfdfc_0%,#f4faf7_100%)] p-4">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-[#5b7672]">
-                  Clique em uma barra para trocar o horario exibido abaixo.
-                </p>
-              </div>
-              <div className="rounded-full border border-[#d9e7e2] bg-white px-3 py-1 text-[11px] font-semibold text-[#476361]">
-                {service.buckets.length} horas
-              </div>
-            </div>
-
-            <SvgBarChart
-              buckets={service.buckets}
-              height={300}
-              selectedBucketStart={selectedBucket?.bucket_start ?? null}
-              onSelectBucket={setSelectedBucketStart}
-              interactive
-            />
-          </div>
-
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h3 className="font-dashboard-display mt-2 text-[1.35rem] font-bold text-[#203735]">
-                {selectedBucket
-                  ? formatBucketLabel(selectedBucket.bucket_start)
-                  : "Nenhum horario selecionado"}
-              </h3>
-            </div>
-            <div className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#476361]">
-              {selectedBucket?.count ?? 0} acessos
-            </div>
-          </div>
-
-          {selectedBucket?.details.length ? (
-            <div className="mt-4 overflow-hidden rounded-[22px] border border-[#e1ebe7]">
-              <div className="grid grid-cols-[minmax(100px,0.8fr)_minmax(150px,1.2fr)_minmax(150px,1.1fr)_100px] gap-3 border-b border-[#e1ebe7] bg-[#f7fbf9] px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#58726f]">
-                <span>User ID</span>
-                <span>User name</span>
-                <span>IP</span>
-                <span>Acessos</span>
-              </div>
-
-              <div className="divide-y divide-[#ecf2ef]">
-                {selectedBucket.details.map((detail, index) => (
-                  <div
-                    key={`${detail.user_id}-${detail.client_ip}-${index}`}
-                    className="grid grid-cols-[minmax(100px,0.8fr)_minmax(150px,1.2fr)_minmax(150px,1.1fr)_100px] gap-3 px-4 py-3 text-sm text-[#29403e]"
-                  >
-                    <span className="font-semibold">{detail.user_id}</span>
-                    <span>{detail.user_name}</span>
-                    <span className="font-dashboard-mono text-[13px] text-[#496764]">
-                      {detail.client_ip}
-                    </span>
-                    <span className="font-semibold">{detail.access_count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="mt-4 rounded-[20px] border border-[#e2ece8] bg-[#f8fcfa] px-4 py-5 text-sm font-medium text-[#5a7572]">
-              Nao ha detalhes de acesso para este horario.
-            </p>
+    <ModalFrame onClose={onClose} title={service.service_name}>
+      <div className="space-y-5">
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+            ID {service.service_id}
+          </span>
+          <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+            {service.total_count} acessos no intervalo
+          </span>
+          {selectedBucket && (
+            <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+              {selectedBucket.label}
+            </span>
           )}
         </div>
+
+        <div className="rounded-[24px] border border-[#e1ebe7] bg-[linear-gradient(180deg,#fbfdfc_0%,#f4faf7_100%)] p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium text-[#5b7672]">
+              Clique nas barras para trocar o horario exibido abaixo.
+            </p>
+            <div className="rounded-full border border-[#d9e7e2] bg-white px-3 py-1 text-[11px] font-semibold text-[#476361]">
+              {chartRows.length} pontos
+            </div>
+          </div>
+
+          <div className="h-[260px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                accessibilityLayer={false}
+                data={chartRows}
+                margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+              >
+                <CartesianGrid
+                  stroke="#d9e6e1"
+                  strokeDasharray="4 6"
+                  vertical={false}
+                />
+                <XAxis
+                  axisLine={false}
+                  dataKey="shortLabel"
+                  minTickGap={16}
+                  tick={{ fill: "#698480", fontSize: 11 }}
+                  tickLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  axisLine={false}
+                  tick={{ fill: "#698480", fontSize: 11 }}
+                  tickLine={false}
+                  width={34}
+                />
+                <Tooltip content={<TrendTooltip />} cursor={false} />
+                <Bar
+                  activeBar={false}
+                  dataKey="count"
+                  onClick={(value) => {
+                    const bucketStart =
+                      (value as { payload?: ChartRow } | undefined)?.payload
+                        ?.bucketStart ?? null;
+
+                    if (bucketStart) {
+                      setSelectedBucketStart(bucketStart);
+                    }
+                  }}
+                  focusable={false}
+                  radius={[10, 10, 4, 4]}
+                  stroke="none"
+                  tabIndex={-1}
+                >
+                  {chartRows.map((row) => (
+                    <Cell
+                      key={row.bucketStart}
+                      cursor="pointer"
+                      fill={
+                        row.bucketStart === selectedBucket?.bucketStart
+                          ? "#1f4d4c"
+                          : row.count > 0
+                            ? "#5faf9f"
+                            : "#d6e2dd"
+                      }
+                      focusable={false}
+                      stroke="none"
+                      tabIndex={-1}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          <StatCard
+            icon={<Clock3 className="h-4 w-4" />}
+            label="Acessos no horario"
+            tone="muted"
+            value={selectedBucket?.count ?? 0}
+          />
+          <StatCard
+            icon={<Users className="h-4 w-4" />}
+            label="Usuarios"
+            tone="muted"
+            value={selectedInsights.uniqueUsers}
+          />
+          <StatCard
+            icon={<Activity className="h-4 w-4" />}
+            label="IPs"
+            tone="muted"
+            value={selectedInsights.uniqueIps}
+          />
+          <div className="rounded-[24px] border border-[#dde8e3] bg-[#fbfdfc] p-4 shadow-[0_16px_40px_rgba(34,52,50,0.05)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
+              Top user
+            </p>
+            <p className="mt-4 text-sm font-semibold text-[#203735]">
+              {selectedInsights.topUser ?? "Sem registros"}
+            </p>
+          </div>
+        </div>
+
+        <DetailsTable
+          details={selectedBucket?.details ?? []}
+          emptyMessage="Nao ha detalhes de acesso para este horario."
+        />
       </div>
-    </div>
+    </ModalFrame>
   );
 }
 
@@ -405,51 +842,66 @@ export default function AuthAnalyticsPage() {
   const [analytics, setAnalytics] = useState<AuthAnalyticsResponse | null>(
     null,
   );
-  const [selectedBucket, setSelectedBucket] = useState<SelectedBucket | null>(
-    null,
-  );
+  const [selectedGlobalBucketStart, setSelectedGlobalBucketStart] = useState<
+    string | null
+  >(null);
   const [detailsServiceId, setDetailsServiceId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [userName, setUserName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [activePresetHours, setActivePresetHours] = useState<number | null>(
+    24,
+  );
+  const latestRequestRef = useRef(0);
+  const autoRefreshEnabledRef = useRef(false);
+  const skipNextAutoRefreshRef = useRef(false);
 
   const serviceCharts = analytics?.services ?? [];
+  const globalChartRows = useMemo(
+    () => buildChartRows(analytics?.global.buckets ?? []),
+    [analytics],
+  );
+  const selectedGlobalBucket = useMemo(
+    () => getGlobalModalBucket(globalChartRows, selectedGlobalBucketStart),
+    [globalChartRows, selectedGlobalBucketStart],
+  );
   const detailsService =
     serviceCharts.find((service) => service.service_id === detailsServiceId) ??
     null;
 
-  const selectedGlobalBucket = useMemo(() => {
-    if (!analytics || selectedBucket?.scope !== "global") {
-      return null;
-    }
-
-    return (
-      analytics.global.buckets.find(
-        (bucket) => bucket.bucket_start === selectedBucket.bucketStart,
-      ) ?? null
-    );
-  }, [analytics, selectedBucket]);
-
   const loadAnalytics = async (
     nextStartValue: string,
     nextEndValue: string,
+    options?: {
+      initialLoad?: boolean;
+    },
   ) => {
     const parsedStart = parseDateTimeLocalValue(nextStartValue);
     const parsedEnd = parseDateTimeLocalValue(nextEndValue);
 
     if (!parsedStart || !parsedEnd) {
-      setErrorMessage("Informe um intervalo de datas valido.");
       return;
     }
 
     if (parsedStart >= parsedEnd) {
       setErrorMessage("A data inicial precisa ser menor que a final.");
+      if (options?.initialLoad) {
+        setIsLoading(false);
+      }
       return;
     }
 
+    const currentRequest = latestRequestRef.current + 1;
+    latestRequestRef.current = currentRequest;
+
     setErrorMessage("");
-    setIsFetching(true);
+
+    if (options?.initialLoad) {
+      setIsLoading(true);
+    } else {
+      setIsFetching(true);
+    }
 
     try {
       const response = await getAuthAnalytics(
@@ -457,8 +909,18 @@ export default function AuthAnalyticsPage() {
         parsedEnd.toISOString(),
       );
 
+      if (latestRequestRef.current !== currentRequest) {
+        return;
+      }
+
       setAnalytics(response);
-      setSelectedBucket(findDefaultSelection(response));
+      setSelectedGlobalBucketStart((currentBucketStart) =>
+        buildChartRows(response.global.buckets).some(
+          (bucket) => bucket.bucketStart === currentBucketStart,
+        )
+          ? currentBucketStart
+          : null,
+      );
       setDetailsServiceId((currentServiceId) =>
         response.services.some(
           (service) => service.service_id === currentServiceId,
@@ -466,28 +928,33 @@ export default function AuthAnalyticsPage() {
           ? currentServiceId
           : null,
       );
+      setActivePresetHours(resolvePresetHours(nextStartValue, nextEndValue));
     } catch (error) {
+      if (latestRequestRef.current !== currentRequest) {
+        return;
+      }
+
       console.error("Error fetching auth analytics:", error);
       setErrorMessage("Nao foi possivel carregar os logs de acesso.");
     } finally {
-      setIsFetching(false);
-      setIsLoading(false);
+      if (latestRequestRef.current === currentRequest) {
+        setIsLoading(false);
+        setIsFetching(false);
+      }
     }
   };
 
-  const applyPresetRange = async (hours: number) => {
+  const applyPresetRange = (hours: number) => {
     const end = new Date();
     const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
     const nextStart = toDateTimeLocalValue(start);
     const nextEnd = toDateTimeLocalValue(end);
 
+    skipNextAutoRefreshRef.current = true;
     setRangeStart(nextStart);
     setRangeEnd(nextEnd);
-    await loadAnalytics(nextStart, nextEnd);
-  };
-
-  const handleApplyRange = async () => {
-    await loadAnalytics(rangeStart, rangeEnd);
+    setActivePresetHours(hours);
+    void loadAnalytics(nextStart, nextEnd);
   };
 
   useEffect(() => {
@@ -501,7 +968,10 @@ export default function AuthAnalyticsPage() {
         }
 
         setUserName(me.user_name);
-        await loadAnalytics(defaultRange.start, defaultRange.end);
+        await loadAnalytics(defaultRange.start, defaultRange.end, {
+          initialLoad: true,
+        });
+        autoRefreshEnabledRef.current = true;
       } catch (error) {
         console.error("Error loading analytics page:", error);
         navigate("/", { replace: true });
@@ -511,6 +981,40 @@ export default function AuthAnalyticsPage() {
     void bootstrap();
   }, [defaultRange.end, defaultRange.start, navigate]);
 
+  useEffect(() => {
+    if (!autoRefreshEnabledRef.current) {
+      return;
+    }
+
+    if (skipNextAutoRefreshRef.current) {
+      skipNextAutoRefreshRef.current = false;
+      return;
+    }
+
+    const parsedStart = parseDateTimeLocalValue(rangeStart);
+    const parsedEnd = parseDateTimeLocalValue(rangeEnd);
+
+    if (!parsedStart || !parsedEnd) {
+      return;
+    }
+
+    if (parsedStart >= parsedEnd) {
+      setErrorMessage("A data inicial precisa ser menor que a final.");
+      return;
+    }
+
+    setErrorMessage("");
+    setActivePresetHours(resolvePresetHours(rangeStart, rangeEnd));
+
+    const timeoutId = window.setTimeout(() => {
+      void loadAnalytics(rangeStart, rangeEnd);
+    }, FILTER_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [rangeEnd, rangeStart]);
+
   return (
     <div className="font-dashboard-sans relative min-h-screen overflow-x-hidden bg-[#edf5f1] text-[#223432]">
       <div className="pointer-events-none fixed inset-0">
@@ -518,25 +1022,35 @@ export default function AuthAnalyticsPage() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(46,118,117,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(46,118,117,0.04)_1px,transparent_1px)] bg-[size:34px_34px] opacity-60" />
       </div>
 
-      <div className="relative mx-auto max-w-[1640px] px-3 pb-10 pt-5 sm:px-4 lg:px-6">
-        <header className="rounded-[32px] border border-[#d7e4de] bg-white/88 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-[#dce8e3] bg-[#f6fbf8]">
+      <div className="relative mx-auto flex max-w-[1540px] flex-col gap-4 px-3 pb-8 pt-4 sm:px-4 lg:px-6">
+        <nav className="rounded-[26px] border border-[#d7e4de] bg-white/88 px-3 py-3 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3 px-1 py-1">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#dce8e3] bg-[#f6fbf8]">
                 <img
                   src="/logo-colored.webp"
                   alt="Analytics"
-                  className="h-auto w-8 object-contain"
+                  className="h-auto w-7 object-contain"
                 />
               </div>
-              <div className="flex min-h-14 items-center">
-                <h1 className="font-dashboard-display text-[1.85rem] font-bold text-[#203735]">
-                  Logs de acesso
-                </h1>
+              <div className="min-w-0">
+                <p className="dashboard-label text-[10px] text-[#2e7675]">
+                  Hospital Samur
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-dashboard-display truncate text-[1.2rem] font-bold text-[#214f4e]">
+                    Access analytics
+                  </h1>
+                  {analytics && (
+                    <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#476361]">
+                      {formatRangeLabel(analytics.start, analytics.end)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#3e5d58]">
                 <ShieldCheck className="h-4 w-4 text-[#2e7675]" />
                 {userName || "Administrador"}
@@ -544,24 +1058,72 @@ export default function AuthAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => navigate("/", { replace: true })}
-                className="inline-flex items-center gap-2 rounded-full border border-[#d9e7e2] bg-white px-4 py-2 text-[12px] font-semibold text-[#385451] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
+                className="inline-flex appearance-none items-center gap-2 rounded-full border border-[#d9e7e2] bg-white px-4 py-2 text-[12px] font-semibold text-[#385451] outline-none ring-0 transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none active:ring-0"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Voltar ao painel
               </button>
             </div>
           </div>
-        </header>
+        </nav>
 
-        <section className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.75fr)_minmax(280px,0.85fr)] xl:items-stretch">
-          <div className="flex h-full flex-col rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
+        <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-4 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-[#2e7675]">
+                <BarChart3 className="h-4 w-4" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#58726f]">
+                  Global access graph
+                </p>
+              </div>
+              <h2 className="font-dashboard-display mt-2 text-[1.45rem] font-bold text-[#203735]">
+                Tendencia de acessos por hora
+              </h2>
+              <p className="mt-1 text-sm text-[#5b7672]">
+                Clique em qualquer ponto do grafico para abrir os detalhes do
+                horario.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+                {globalChartRows.length} pontos
+              </span>
+              {isFetching && (
+                <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+                  Atualizando filtro
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-[24px] border border-[#e1ebe7] bg-[linear-gradient(180deg,#fbfdfc_0%,#f4faf7_100%)] px-3 py-3 sm:px-4">
+            {isLoading ? (
+              <div className="flex h-[260px] items-center justify-center text-sm font-medium text-[#526c69] sm:h-[320px]">
+                Carregando analytics de acesso...
+              </div>
+            ) : (
+              <GlobalAccessChart
+                isBusy={isFetching}
+                onSelectBucket={setSelectedGlobalBucketStart}
+                rows={globalChartRows}
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(220px,0.7fr)_minmax(220px,0.7fr)]">
+          <div className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-4 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur sm:p-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#2e7675]/10 text-[#2e7675]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#2e7675]/10 text-[#2e7675]">
                 <CalendarRange className="h-5 w-5" />
               </div>
-              <div className="flex min-h-[40px] items-center">
-                <h2 className="font-dashboard-display text-[1.35rem] font-bold text-[#203735]">
-                  Filtro de tempo
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#58726f]">
+                  Filtros
+                </p>
+                <h2 className="font-dashboard-display text-[1.18rem] font-bold text-[#203735]">
+                  Filtros
                 </h2>
               </div>
             </div>
@@ -575,7 +1137,7 @@ export default function AuthAnalyticsPage() {
                   type="datetime-local"
                   value={rangeStart}
                   onChange={(event) => setRangeStart(event.target.value)}
-                  className="h-12 w-full rounded-[18px] border border-[#d7e4de] bg-[#f8fcfa] px-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
+                  className="h-11 w-full rounded-[16px] border border-[#d7e4de] bg-[#f8fcfa] px-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
                 />
               </label>
               <label className="block">
@@ -586,46 +1148,29 @@ export default function AuthAnalyticsPage() {
                   type="datetime-local"
                   value={rangeEnd}
                   onChange={(event) => setRangeEnd(event.target.value)}
-                  className="h-12 w-full rounded-[18px] border border-[#d7e4de] bg-[#f8fcfa] px-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
+                  className="h-11 w-full rounded-[16px] border border-[#d7e4de] bg-[#f8fcfa] px-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
                 />
               </label>
               <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={() => void handleApplyRange()}
-                  disabled={isFetching}
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[18px] bg-[#2e7675] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#285f5f] disabled:cursor-not-allowed disabled:opacity-70"
-                >
+                <div className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[16px] border border-[#d8e5e0] bg-[#f4faf7] px-4 text-[12px] font-semibold text-[#355754]">
                   <RefreshCw
                     className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
                   />
-                  Aplicar filtro
-                </button>
+                  {isFetching ? "Atualizando" : "Auto-apply"}
+                </div>
               </div>
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void applyPresetRange(24)}
-                className="rounded-full border border-[#d8e5e0] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#305452] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
-              >
-                Ultimas 24 horas
-              </button>
-              <button
-                type="button"
-                onClick={() => void applyPresetRange(72)}
-                className="rounded-full border border-[#d8e5e0] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#305452] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
-              >
-                Ultimas 72 horas
-              </button>
-              <button
-                type="button"
-                onClick={() => void applyPresetRange(168)}
-                className="rounded-full border border-[#d8e5e0] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#305452] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
-              >
-                Ultimos 7 dias
-              </button>
+              {PRESET_OPTIONS.map((preset) => (
+                <PresetButton
+                  key={preset.hours}
+                  isActive={activePresetHours === preset.hours}
+                  isBusy={isFetching}
+                  label={preset.label}
+                  onClick={() => applyPresetRange(preset.hours)}
+                />
+              ))}
             </div>
 
             {errorMessage && (
@@ -635,169 +1180,87 @@ export default function AuthAnalyticsPage() {
             )}
           </div>
 
-          <div className="grid h-full gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="flex h-full flex-col justify-between rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-              <p className="flex min-h-[18px] items-center text-[12px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
-                Total de acessos
-              </p>
-              <p className="mt-3 font-dashboard-display text-[2rem] font-bold text-[#203735]">
-                {analytics?.global.total_count ?? 0}
-              </p>
-            </div>
-
-            <div className="flex h-full flex-col justify-between rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-              <p className="flex min-h-[18px] items-center text-[12px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
-                Servicos monitorados
-              </p>
-              <p className="mt-3 font-dashboard-display text-[2rem] font-bold text-[#203735]">
-                {serviceCharts.length}
-              </p>
-            </div>
-          </div>
+          <StatCard
+            icon={<Activity className="h-4 w-4" />}
+            label="Total de acessos"
+            value={analytics?.global.total_count ?? 0}
+          />
+          <StatCard
+            icon={<Server className="h-4 w-4" />}
+            label="Servicos"
+            value={serviceCharts.length}
+          />
         </section>
 
-        <div className="mt-5 space-y-5">
-          {isLoading ? (
-            <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-8 text-sm font-medium text-[#526c69] shadow-[0_18px_50px_rgba(34,52,50,0.08)]">
-              Carregando analytics de acesso...
-            </section>
-          ) : (
-            <>
-              <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h2 className="font-dashboard-display text-[1.55rem] font-bold text-[#203735]">
-                      Acessos globais por hora
-                    </h2>
-                  </div>
-                  <div className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1 text-[11px] font-semibold text-[#476361]">
-                    {analytics?.global.buckets.length ?? 0} horas
-                  </div>
-                </div>
+        <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-4 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-[#2e7675]">
+                <Server className="h-4 w-4" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#58726f]">
+                  Servicos
+                </p>
+              </div>
+              <h2 className="font-dashboard-display mt-2 text-[1.35rem] font-bold text-[#203735]">
+                Servicos
+              </h2>
+            </div>
 
-                <div className="mt-5 rounded-[26px] border border-[#e1ebe7] bg-[linear-gradient(180deg,#fbfdfc_0%,#f4faf7_100%)] p-4">
-                  <SvgBarChart
-                    buckets={analytics?.global.buckets ?? []}
-                    selectedBucketStart={
-                      selectedBucket?.scope === "global"
-                        ? selectedBucket.bucketStart
-                        : null
-                    }
-                    onSelectBucket={(bucketStart) =>
-                      setSelectedBucket({ scope: "global", bucketStart })
-                    }
-                    interactive
-                  />
-                </div>
-              </section>
+            <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
+              {serviceCharts.length} servicos
+            </span>
+          </div>
 
-              <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <h2 className="font-dashboard-display text-[1.4rem] font-bold text-[#203735]">
-                      {selectedGlobalBucket
-                        ? formatBucketLabel(selectedGlobalBucket.bucket_start)
-                        : "Selecione uma barra do grafico principal"}
-                    </h2>
-                  </div>
-                  <div className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#476361]">
-                    {selectedGlobalBucket?.count ?? 0} acessos
-                  </div>
-                </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {serviceCharts.map((service) => {
+              const rows = buildChartRows(service.buckets);
+              const hasAccess = service.total_count > 0;
 
-                {selectedGlobalBucket?.details.length ? (
-                  <div className="mt-5 overflow-hidden rounded-[22px] border border-[#e1ebe7]">
-                    <div className="grid grid-cols-[minmax(100px,0.8fr)_minmax(150px,1.2fr)_minmax(150px,1.1fr)_100px] gap-3 border-b border-[#e1ebe7] bg-[#f7fbf9] px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#58726f]">
-                      <span>User ID</span>
-                      <span>User name</span>
-                      <span>IP</span>
-                      <span>Acessos</span>
-                    </div>
-                    <div className="divide-y divide-[#ecf2ef]">
-                      {selectedGlobalBucket.details.map((detail, index) => (
-                        <div
-                          key={`${detail.user_id}-${detail.client_ip}-${index}`}
-                          className="grid grid-cols-[minmax(100px,0.8fr)_minmax(150px,1.2fr)_minmax(150px,1.1fr)_100px] gap-3 px-4 py-3 text-sm text-[#29403e]"
-                        >
-                          <span className="font-semibold">
-                            {detail.user_id}
-                          </span>
-                          <span>{detail.user_name}</span>
-                          <span className="font-dashboard-mono text-[13px] text-[#496764]">
-                            {detail.client_ip}
-                          </span>
-                          <span className="font-semibold">
-                            {detail.access_count}
-                          </span>
-                        </div>
-                      ))}
+              return (
+                <button
+                  key={service.service_id}
+                  type="button"
+                  onClick={() => setDetailsServiceId(service.service_id)}
+                  className={`appearance-none rounded-[24px] border p-4 text-left outline-none ring-0 transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(34,52,50,0.08)] focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none active:ring-0 ${
+                    hasAccess
+                      ? "border-[#e2ece8] bg-[#fbfdfc] hover:border-[#cfe0da]"
+                      : "border-[#e5eeea] bg-[#f8fbfa] text-[#607873] hover:border-[#d9e6e1]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-[15px] font-bold text-[#203735]">
+                        {service.service_name}
+                      </h3>
+                      <p className="mt-1 text-[12px] font-medium text-[#5a7572]">
+                        ID {service.service_id} - {service.total_count} acessos
+                      </p>
                     </div>
                   </div>
-                ) : (
-                  <p className="mt-5 rounded-[20px] border border-[#e2ece8] bg-[#f8fcfa] px-4 py-5 text-sm font-medium text-[#5a7572]">
-                    Selecione uma barra com acessos para ver os detalhes.
-                  </p>
-                )}
-              </section>
 
-              <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h2 className="font-dashboard-display text-[1.45rem] font-bold text-[#203735]">
-                      Acessos por servico
-                    </h2>
+                  <div className="mt-4 rounded-[20px] border border-[#e1ebe7] bg-[linear-gradient(180deg,#fbfdfc_0%,#f4faf7_100%)] px-3 py-2">
+                    <ServiceSparkline muted={!hasAccess} rows={rows} />
                   </div>
-                </div>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {serviceCharts.map((service) => (
-                    <article
-                      key={service.service_id}
-                      className="rounded-[24px] border border-[#e2ece8] bg-[#fbfdfc] p-4 transition-colors hover:border-[#cfe0da]"
-                    >
-                      <div className="mb-4 flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-[15px] font-bold text-[#203735]">
-                            {service.service_name}
-                          </h3>
-                          <p className="mt-1 text-[12px] font-medium text-[#5a7572]">
-                            ID {service.service_id} - {service.total_count}{" "}
-                            acessos
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDetailsServiceId(service.service_id)
-                          }
-                          className="shrink-0 rounded-full border border-[#d8e5e0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#355754] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
-                        >
-                          Ver detalhes
-                        </button>
-                      </div>
-
-                      <div className="rounded-[20px] border border-[#e1ebe7] bg-[linear-gradient(180deg,#fbfdfc_0%,#f4faf7_100%)] px-3 py-3">
-                        <SvgBarChart
-                          buckets={service.buckets}
-                          height={190}
-                          showLabels={false}
-                          showValues={false}
-                          emphasizeMaxOnly
-                        />
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </>
-          )}
-        </div>
+                  <div className="mt-3 flex items-center justify-between text-[12px] font-medium text-[#5a7572]">
+                    <span>{rows.length} pontos</span>
+                    <span>{hasAccess ? "Com movimentacao" : "Sem acessos"}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       </div>
 
+      <GlobalDetailsModal
+        bucket={selectedGlobalBucket}
+        onClose={() => setSelectedGlobalBucketStart(null)}
+      />
+
       <ServiceDetailsModal
-        service={detailsService}
         onClose={() => setDetailsServiceId(null)}
+        service={detailsService}
       />
     </div>
   );

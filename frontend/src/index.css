@@ -68,3 +68,16 @@ html {
 *::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #cddfd8 0%, #bdd2ca 100%);
 }
+
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-layer:focus,
+.recharts-layer:focus-visible,
+.recharts-bar-rectangle:focus,
+.recharts-bar-rectangle:focus-visible,
+.recharts-rectangle:focus,
+.recharts-rectangle:focus-visible {
+  outline: none !important;
+}
