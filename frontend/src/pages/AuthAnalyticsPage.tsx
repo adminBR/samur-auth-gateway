@@ -1110,7 +1110,7 @@ export default function AuthAnalyticsPage() {
       </div>
 
       <div className="relative mx-auto flex max-w-[1540px] flex-col gap-4 px-3 pb-8 pt-4 sm:px-4 lg:px-6">
-        <nav className="rounded-[26px] border border-[#d7e4de] bg-white/88 px-3 py-3 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
+        <nav className="px-1 py-1">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3 px-1 py-1">
               <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#dce8e3] bg-[#f6fbf8]">

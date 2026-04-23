@@ -343,14 +343,15 @@ Capabilities:
 - view hourly global access totals
 - view hourly per-service access totals
 - filter by explicit time range using `datetime-local` inputs
-- use preset ranges for 24 hours, 72 hours, and 7 days
-- inspect global hourly user rows inline
+- use preset ranges for 24 hours, 72 hours, 7 days, 30 days, and 180 days
+- inspect global hourly user rows in a modal
 - inspect per-service hourly user rows in a modal
 
 Behavior notes:
 
-- the page uses custom responsive SVG bar charts rather than a modal-based admin tool
-- service cards are intentionally simplified to a 3-column grid with one compact chart each
+- the page uses a compact chart-first layout with Recharts bar charts and modal-based drilldowns
+- the page header now floats directly on the background with the logo, title, and back action instead of a framed navbar card
+- service cards are intentionally simplified to a compact grid with one chart each
 - the service modal opens with the latest hour that contains data selected by default
 
 ## API Dependency Map
