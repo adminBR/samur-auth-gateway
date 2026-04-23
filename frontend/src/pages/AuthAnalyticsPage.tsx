@@ -9,8 +9,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Activity,
   ArrowLeft,
-  BarChart3,
-  CalendarRange,
   Clock3,
   RefreshCw,
   Server,
@@ -113,6 +111,8 @@ const PRESET_OPTIONS = [
   { hours: 24, label: "Ultimas 24 horas" },
   { hours: 72, label: "Ultimas 72 horas" },
   { hours: 168, label: "Ultimos 7 dias" },
+  { hours: 720, label: "Ultimo mes" },
+  { hours: 4320, label: "Ultimos 6 meses" },
 ] as const;
 
 const FILTER_DEBOUNCE_MS = 650;
@@ -417,9 +417,9 @@ function StatCard({ icon, label, tone = "brand", value }: StatCardProps) {
 
   return (
     <div
-      className={`flex h-full flex-col justify-between rounded-[24px] border p-4 shadow-[0_16px_40px_rgba(34,52,50,0.06)] ${toneClassName}`}
+      className={`flex h-full flex-col items-center justify-center rounded-[24px] border p-4 text-center shadow-[0_16px_40px_rgba(34,52,50,0.06)] ${toneClassName}`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#2e7675]/10 text-[#2e7675]">
           {icon}
         </div>
@@ -1070,13 +1070,7 @@ export default function AuthAnalyticsPage() {
         <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-4 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-[#2e7675]">
-                <BarChart3 className="h-4 w-4" />
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#58726f]">
-                  Global access graph
-                </p>
-              </div>
-              <h2 className="font-dashboard-display mt-2 text-[1.45rem] font-bold text-[#203735]">
+              <h2 className="font-dashboard-display text-[1.45rem] font-bold text-[#203735]">
                 Tendencia de acessos por hora
               </h2>
               <p className="mt-1 text-sm text-[#5b7672]">
@@ -1086,9 +1080,6 @@ export default function AuthAnalyticsPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
-                {globalChartRows.length} pontos
-              </span>
               {isFetching && (
                 <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-3 py-1.5 text-[11px] font-semibold text-[#476361]">
                   Atualizando filtro
@@ -1114,21 +1105,7 @@ export default function AuthAnalyticsPage() {
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(220px,0.7fr)_minmax(220px,0.7fr)]">
           <div className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-4 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur sm:p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#2e7675]/10 text-[#2e7675]">
-                <CalendarRange className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#58726f]">
-                  Filtros
-                </p>
-                <h2 className="font-dashboard-display text-[1.18rem] font-bold text-[#203735]">
-                  Filtros
-                </h2>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
               <label className="block">
                 <span className="mb-1.5 block text-[12px] font-semibold text-[#4c6663]">
                   Data inicial
@@ -1195,13 +1172,7 @@ export default function AuthAnalyticsPage() {
         <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-4 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-[#2e7675]">
-                <Server className="h-4 w-4" />
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#58726f]">
-                  Servicos
-                </p>
-              </div>
-              <h2 className="font-dashboard-display mt-2 text-[1.35rem] font-bold text-[#203735]">
+              <h2 className="font-dashboard-display text-[1.35rem] font-bold text-[#203735]">
                 Servicos
               </h2>
             </div>
