@@ -314,6 +314,7 @@ Behavior notes:
 - the page header now floats directly on the background with only the main title and the back action
 - the top controls are rendered as a single compact inline bar with filters on the left and the summary/primary action on the right on wide screens
 - the top bar uses border-only styling with no card shadow, and keeps the `Usuarios` counter and `Novo usuario` action side by side
+- the built-in admin user with `id = 1` is protected in the UI and cannot be edited or removed from the management table
 
 ### NGINX operations
 

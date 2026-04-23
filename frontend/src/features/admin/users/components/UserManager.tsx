@@ -43,6 +43,11 @@ type SortDirection = "asc" | "desc";
 type AccessFilterValue = "all" | "none" | `${number}`;
 
 const DEFAULT_JWT_EXPIRATION = "1";
+const PROTECTED_ADMIN_USER_ID = 1;
+
+function isProtectedAdminUser(user?: Pick<User, "id"> | null) {
+  return user?.id === PROTECTED_ADMIN_USER_ID;
+}
 
 function parseAccessIds(access: string | undefined) {
   return String(access || "")
@@ -599,6 +604,10 @@ export default function UserManager() {
   };
 
   const openEditModal = (user: User) => {
+    if (isProtectedAdminUser(user)) {
+      return;
+    }
+
     setCurrentUser(user);
     setEditPassword("");
     setEditIsAdmin(user.is_admin);
@@ -609,6 +618,10 @@ export default function UserManager() {
   };
 
   const openDeleteModal = (user: User) => {
+    if (isProtectedAdminUser(user)) {
+      return;
+    }
+
     setCurrentUser(user);
     setModalError(null);
     setShowDeleteModal(true);
@@ -689,6 +702,11 @@ export default function UserManager() {
       return;
     }
 
+    if (isProtectedAdminUser(currentUser)) {
+      setModalError("O usuario admin principal nao pode ser editado.");
+      return;
+    }
+
     const payload: UpdateUserPayload = {
       is_admin: editIsAdmin,
       access: Array.from(editSelectedServiceIds).join(","),
@@ -735,6 +753,11 @@ export default function UserManager() {
 
   const handleDeleteUser = async () => {
     if (!currentUser) {
+      return;
+    }
+
+    if (isProtectedAdminUser(currentUser)) {
+      setModalError("O usuario admin principal nao pode ser removido.");
       return;
     }
 
@@ -1060,24 +1083,32 @@ export default function UserManager() {
                           </span>
                         </td>
                         <td className="px-5 py-4 align-top">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(user)}
-                              className="inline-flex items-center gap-2 rounded-[14px] border border-[#d8e5e0] bg-white px-3 py-2 text-[12px] font-semibold text-[#385451] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
-                            >
-                              <UserCog className="h-4 w-4" />
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openDeleteModal(user)}
-                              className="inline-flex items-center gap-2 rounded-[14px] border border-[#f0d6d6] bg-white px-3 py-2 text-[12px] font-semibold text-[#b14949] transition-colors hover:border-[#c45757]/30 hover:text-[#c45757]"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Excluir
-                            </button>
-                          </div>
+                          {isProtectedAdminUser(user) ? (
+                            <div className="flex justify-end">
+                              <span className="inline-flex items-center rounded-[14px] border border-[#d7e4de] bg-[#f8fcfa] px-3 py-2 text-[12px] font-semibold text-[#617b77]">
+                                Protegido
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(user)}
+                                className="inline-flex items-center gap-2 rounded-[14px] border border-[#d8e5e0] bg-white px-3 py-2 text-[12px] font-semibold text-[#385451] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
+                              >
+                                <UserCog className="h-4 w-4" />
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openDeleteModal(user)}
+                                className="inline-flex items-center gap-2 rounded-[14px] border border-[#f0d6d6] bg-white px-3 py-2 text-[12px] font-semibold text-[#b14949] transition-colors hover:border-[#c45757]/30 hover:text-[#c45757]"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Excluir
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
