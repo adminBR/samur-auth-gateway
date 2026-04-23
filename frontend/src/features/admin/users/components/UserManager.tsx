@@ -8,10 +8,8 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
-  Filter,
   LoaderCircle,
   Search,
-  ShieldCheck,
   Trash2,
   UserCog,
   UserPlus,
@@ -115,7 +113,8 @@ function sortUsers(users: User[], sortKey: SortKey, direction: SortDirection) {
         return compareBoolean(Boolean(left.is_tasy), Boolean(right.is_tasy));
       case "access_count":
         return (
-          parseAccessIds(left.access).length - parseAccessIds(right.access).length
+          parseAccessIds(left.access).length -
+          parseAccessIds(right.access).length
         );
       case "jwt_expiration":
         return compareJwtExpiration(left.jwt_expiration, right.jwt_expiration);
@@ -205,10 +204,7 @@ function UserFormModal({
           </button>
         </div>
 
-        <form
-          onSubmit={onSubmit}
-          className="px-5 py-5 sm:px-6"
-        >
+        <form onSubmit={onSubmit} className="px-5 py-5 sm:px-6">
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(450px,1.2fr)]">
             <div className="space-y-3">
               <section className="rounded-[18px] border border-[#deebe6] bg-[#fbfdfc] p-4">
@@ -483,7 +479,6 @@ export default function UserManager() {
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
-  const [userName, setUserName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [tasyFilter, setTasyFilter] = useState<"all" | "tasy" | "local">("all");
   const [accessFilter, setAccessFilter] = useState<AccessFilterValue>("all");
@@ -500,9 +495,9 @@ export default function UserManager() {
   const [newPassword, setNewPassword] = useState("");
   const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [newEndlessJwt, setNewEndlessJwt] = useState(false);
-  const [newSelectedServiceIds, setNewSelectedServiceIds] = useState<Set<number>>(
-    new Set(),
-  );
+  const [newSelectedServiceIds, setNewSelectedServiceIds] = useState<
+    Set<number>
+  >(new Set());
 
   const [editPassword, setEditPassword] = useState("");
   const [editIsAdmin, setEditIsAdmin] = useState(false);
@@ -556,11 +551,6 @@ export default function UserManager() {
   const visibleUsers = sortUsers(filteredUsers, sortKey, sortDirection);
 
   const totalUsers = users.length;
-  const totalAdmins = users.filter((user) => user.is_admin).length;
-  const totalTasyUsers = users.filter((user) => user.is_tasy).length;
-  const totalUsersWithAccess = users.filter(
-    (user) => parseAccessIds(user.access).length > 0,
-  ).length;
 
   const loadPageData = async () => {
     setPageError(null);
@@ -577,7 +567,6 @@ export default function UserManager() {
         return;
       }
 
-      setUserName(me.user_name);
       setAllServices(services);
       setUsers(usersResponse);
     } catch (error: any) {
@@ -713,15 +702,19 @@ export default function UserManager() {
     const originalAccess = new Set(parseAccessIds(currentUser.access));
     const hasPasswordChange = Boolean(payload.user_pass);
     const hasAdminChange = editIsAdmin !== currentUser.is_admin;
-    const hasJwtChange =
-      payload.jwt_expiration !== currentUser.jwt_expiration;
+    const hasJwtChange = payload.jwt_expiration !== currentUser.jwt_expiration;
     const hasAccessChange =
       originalAccess.size !== editSelectedServiceIds.size ||
       Array.from(editSelectedServiceIds).some(
         (serviceId) => !originalAccess.has(serviceId),
       );
 
-    if (!hasPasswordChange && !hasAdminChange && !hasJwtChange && !hasAccessChange) {
+    if (
+      !hasPasswordChange &&
+      !hasAdminChange &&
+      !hasJwtChange &&
+      !hasAccessChange
+    ) {
       setModalError("Nenhuma alteracao foi feita.");
       return;
     }
@@ -828,9 +821,9 @@ export default function UserManager() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(46,118,117,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(46,118,117,0.04)_1px,transparent_1px)] bg-[size:34px_34px] opacity-60" />
       </div>
 
-      <div className="relative mx-auto max-w-[1640px] px-3 pb-10 pt-5 sm:px-4 lg:px-6">
-        <header className="rounded-[32px] border border-[#d7e4de] bg-white/88 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="relative mx-auto max-w-[1640px] px-3 pb-5 pt-3 sm:px-4 lg:px-6">
+        <header className="px-1 py-1">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-[#dce8e3] bg-[#f6fbf8]">
                 <img
@@ -840,30 +833,15 @@ export default function UserManager() {
                 />
               </div>
               <div className="flex min-h-14 items-center">
-                <div>
-                  <p className="dashboard-label text-[10px] text-[#2e7675]">
-                    Administracao
-                  </p>
-                  <h1 className="font-dashboard-display mt-2 text-[1.85rem] font-bold text-[#203735]">
-                    Gerenciamento de usuarios
+                <div className="text-center">
+                  <h1 className="font-dashboard-display text-[1.85rem] font-bold text-[#203735]">
+                    Usuarios
                   </h1>
                 </div>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#3e5d58]">
-                <ShieldCheck className="h-4 w-4 text-[#2e7675]" />
-                {userName || "Administrador"}
-              </div>
-              <button
-                type="button"
-                onClick={openAddModal}
-                className="inline-flex items-center gap-2 rounded-full bg-[#2e7675] px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#285f5f]"
-              >
-                <UserPlus className="h-4 w-4" />
-                Novo usuario
-              </button>
               <button
                 type="button"
                 onClick={() => navigate("/", { replace: true })}
@@ -876,28 +854,11 @@ export default function UserManager() {
           </div>
         </header>
 
-        <section className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)] xl:items-stretch">
-          <div className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2e7675]/10 text-[#2e7675]">
-                <Filter className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="font-dashboard-display text-[1.35rem] font-bold text-[#203735]">
-                  Busca e filtros
-                </h2>
-                <p className="mt-1 text-sm text-[#5b7672]">
-                  Pesquise por nome, filtre por origem do usuario e refine por
-                  indicador liberado.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(220px,0.5fr)_minmax(240px,0.7fr)_auto]">
+        <section className="mt-3 rounded-[26px] border border-[#d7e4de] bg-white px-4 py-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_180px_240px_108px]">
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-semibold text-[#4c6663]">
-                  Buscar por nome
-                </span>
+                <span className="sr-only">Buscar por nome</span>
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
                     <Search className="h-4 w-4 text-[#7f9692]" />
@@ -906,42 +867,40 @@ export default function UserManager() {
                     type="text"
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Digite o nome do usuario"
-                    className="h-12 w-full rounded-[18px] border border-[#d7e4de] bg-[#f8fcfa] pl-11 pr-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
+                    placeholder="Buscar usuario"
+                    className="h-11 w-full rounded-[16px] border border-[#d7e4de] bg-[#f8fcfa] pl-11 pr-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
                   />
                 </div>
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-semibold text-[#4c6663]">
-                  Origem
-                </span>
+                <span className="sr-only">Origem</span>
                 <select
                   value={tasyFilter}
                   onChange={(event) =>
-                    setTasyFilter(event.target.value as "all" | "tasy" | "local")
+                    setTasyFilter(
+                      event.target.value as "all" | "tasy" | "local",
+                    )
                   }
-                  className="h-12 w-full rounded-[18px] border border-[#d7e4de] bg-[#f8fcfa] px-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
+                  className="h-11 w-full rounded-[16px] border border-[#d7e4de] bg-[#f8fcfa] px-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
                 >
-                  <option value="all">Todos</option>
-                  <option value="local">Locais</option>
-                  <option value="tasy">Tasy</option>
+                  <option value="all">Origem: todos</option>
+                  <option value="local">Origem: locais</option>
+                  <option value="tasy">Origem: Tasy</option>
                 </select>
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-semibold text-[#4c6663]">
-                  Filtrar por acesso
-                </span>
+                <span className="sr-only">Filtrar por acesso</span>
                 <select
                   value={accessFilter}
                   onChange={(event) =>
                     setAccessFilter(event.target.value as AccessFilterValue)
                   }
-                  className="h-12 w-full rounded-[18px] border border-[#d7e4de] bg-[#f8fcfa] px-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
+                  className="h-11 w-full rounded-[16px] border border-[#d7e4de] bg-[#f8fcfa] px-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
                 >
                   <option value="all">Todos os acessos</option>
-                  <option value="none">Sem indicadores liberados</option>
+                  <option value="none">Sem indicadores</option>
                   {allServices.map((service) => (
                     <option key={service.srv_id} value={String(service.srv_id)}>
                       {service.srv_name}
@@ -950,77 +909,54 @@ export default function UserManager() {
                 </select>
               </label>
 
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setTasyFilter("all");
-                    setAccessFilter("all");
-                  }}
-                  className="h-12 rounded-[18px] border border-[#d7e4de] bg-white px-4 text-[13px] font-semibold text-[#385451] transition-colors hover:border-[#2e7675]/30 hover:text-[#2e7675]"
-                >
-                  Limpar
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  setTasyFilter("all");
+                  setAccessFilter("all");
+                }}
+                className="h-11 rounded-[16px] border border-[#d7e4de] bg-white px-4 text-[13px] font-semibold text-[#385451] transition-colors hover:border-[#bfd5cf] hover:bg-[#f8fcfa]"
+              >
+                Limpar
+              </button>
             </div>
-          </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
-            <div className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-              <p className="flex min-h-[18px] items-center text-[12px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
-                Usuarios
-              </p>
-              <p className="mt-3 font-dashboard-display text-[2rem] font-bold text-[#203735]">
-                {totalUsers}
-              </p>
-            </div>
-            <div className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-              <p className="flex min-h-[18px] items-center text-[12px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
-                Administradores
-              </p>
-              <p className="mt-3 font-dashboard-display text-[2rem] font-bold text-[#203735]">
-                {totalAdmins}
-              </p>
-            </div>
-            <div className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-              <p className="flex min-h-[18px] items-center text-[12px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
-                Usuarios Tasy
-              </p>
-              <p className="mt-3 font-dashboard-display text-[2rem] font-bold text-[#203735]">
-                {totalTasyUsers}
-              </p>
-            </div>
-            <div className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-              <p className="flex min-h-[18px] items-center text-[12px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
-                Com indicadores
-              </p>
-              <p className="mt-3 font-dashboard-display text-[2rem] font-bold text-[#203735]">
-                {totalUsersWithAccess}
-              </p>
+            <div className="hidden h-11 w-px bg-[#dce8e3] xl:block" />
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:flex-none">
+              <div className="flex h-11 min-w-[154px] items-center justify-between rounded-[16px] border border-[#d7e4de] bg-[#f8fcfa] px-4">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
+                  Usuarios
+                </span>
+                <span className="font-dashboard-display text-[1.55rem] font-bold leading-none text-[#203735]">
+                  {totalUsers}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={openAddModal}
+                className="inline-flex h-11 appearance-none items-center justify-center gap-2 rounded-[16px] border border-[#2e7675] bg-[#2e7675] px-5 text-[13px] font-semibold text-white outline-none transition-colors hover:bg-[#275f5e] focus:outline-none"
+              >
+                <UserPlus className="h-4 w-4" />
+                Novo usuario
+              </button>
             </div>
           </div>
         </section>
 
-        <section className="mt-5 rounded-[28px] border border-[#d7e4de] bg-white/90 p-5 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <section className="mt-3 rounded-[28px] border border-[#d7e4de] bg-white/90 p-4 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="font-dashboard-display text-[1.5rem] font-bold text-[#203735]">
-                Grade de usuarios
-              </h2>
-              <p className="mt-2 text-sm text-[#5b7672]">
-                {visibleUsers.length} usuario(s) exibido(s) apos aplicar os filtros.
+              <p className="text-sm text-[#5b7672]">
+                {visibleUsers.length} usuários encontrados.
               </p>
-            </div>
-
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#476361]">
-              <Users className="h-4 w-4 text-[#2e7675]" />
-              Ordenando por {sortKey.replace("_", " ")}
             </div>
           </div>
 
           {pageError && !isBootstrapping ? (
-            <div className="mt-5 rounded-[18px] border border-[#f0d6d6] bg-[#fff5f5] px-4 py-3 text-sm font-medium text-[#b14949]">
+            <div className="mt-4 rounded-[18px] border border-[#f0d6d6] bg-[#fff5f5] px-4 py-3 text-sm font-medium text-[#b14949]">
               {pageError}
             </div>
           ) : null}
@@ -1031,14 +967,14 @@ export default function UserManager() {
               <p>Carregando usuarios e acessos...</p>
             </div>
           ) : visibleUsers.length ? (
-            <div className="mt-5 overflow-hidden rounded-[24px] border border-[#e1ebe7]">
+            <div className="mt-4 overflow-hidden rounded-[24px] border border-[#e1ebe7]">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-[#e1ebe7]">
                   <thead className="bg-[#f7fbf9]">
                     <tr>
                       {[
                         { label: "Usuario", key: "username" },
-                        { label: "Admin", key: "is_admin" },
+                        { label: "", key: "is_admin" },
                         { label: "Tasy", key: "is_tasy" },
                         { label: "Acessos", key: "access_count" },
                         { label: "Sessao", key: "jwt_expiration" },
@@ -1048,14 +984,16 @@ export default function UserManager() {
                           key={column.key}
                           className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-[#58726f]"
                         >
-                          <button
-                            type="button"
-                            onClick={() => handleSort(column.key as SortKey)}
-                            className="inline-flex items-center gap-2 transition-colors hover:text-[#2e7675]"
-                          >
-                            {column.label}
-                            {renderSortIcon(column.key as SortKey)}
-                          </button>
+                          {column.label ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSort(column.key as SortKey)}
+                              className="inline-flex items-center gap-2 transition-colors hover:text-[#2e7675]"
+                            >
+                              {column.label}
+                              {renderSortIcon(column.key as SortKey)}
+                            </button>
+                          ) : null}
                         </th>
                       ))}
                       <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-[0.12em] text-[#58726f]">

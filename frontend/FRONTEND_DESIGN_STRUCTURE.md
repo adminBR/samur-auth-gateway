@@ -311,6 +311,9 @@ Behavior notes:
 - calls backend admin endpoints in `frontend/src/api/axios.ts`
 - validates admin access with `/me` and redirects non-admin users back to `/`
 - displays `jwt_expiration === "inf"` as `Infinito`
+- the page header now floats directly on the background with only the main title and the back action
+- the top controls are rendered as a single compact inline bar with filters on the left and the summary/primary action on the right on wide screens
+- the top bar uses border-only styling with no card shadow, and keeps the `Usuarios` counter and `Novo usuario` action side by side
 
 ### NGINX operations
 
