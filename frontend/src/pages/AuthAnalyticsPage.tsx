@@ -52,6 +52,12 @@ type BucketInsights = {
   topUser: string | null;
 };
 
+type ChartMouseState = {
+  activeCoordinate?: {
+    x?: number;
+  };
+};
+
 interface ModalFrameProps {
   children: ReactNode;
   maxWidthClassName?: string;
@@ -171,6 +177,10 @@ function formatAxisLabel(bucketStart: string) {
   const bucketDate = new Date(bucketStart);
 
   return `${pad(bucketDate.getHours())}:${pad(bucketDate.getMinutes())}`;
+}
+
+function formatCountLabel(value: number) {
+  return value.toLocaleString("pt-BR");
 }
 
 function formatRangeLabel(start: string, end: string) {
@@ -354,6 +364,24 @@ function getGlobalModalBucket(
   return rows.find((row) => row.bucketStart === selectedBucketStart) ?? null;
 }
 
+function getYAxisWidth(rows: ChartRow[]) {
+  const maxValue = Math.max(...rows.map((row) => row.count), 0);
+  const formattedLength = formatCountLabel(maxValue).length;
+
+  return Math.max(40, formattedLength * 8 + 12);
+}
+
+function resolveTooltipReverseX(state: unknown, containerWidth: number) {
+  const chartState = state as ChartMouseState | undefined;
+  const coordinateX = chartState?.activeCoordinate?.x;
+
+  if (typeof coordinateX !== "number" || containerWidth <= 0) {
+    return null;
+  }
+
+  return coordinateX > containerWidth / 2;
+}
+
 function TrendTooltip({
   active,
   payload,
@@ -506,8 +534,15 @@ function GlobalAccessChart({
   onSelectBucket,
   rows,
 }: GlobalAccessChartProps) {
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const [reverseTooltipX, setReverseTooltipX] = useState(false);
+  const yAxisWidth = getYAxisWidth(rows);
+
   return (
-    <div className="relative h-[260px] w-full sm:h-[320px]">
+    <div
+      ref={chartContainerRef}
+      className="relative h-[260px] w-full sm:h-[320px]"
+    >
       {isBusy && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-end">
           <div className="rounded-full border border-[#d7e4de] bg-white/92 px-3 py-1 text-[11px] font-semibold text-[#476361] shadow-sm">
@@ -521,7 +556,17 @@ function GlobalAccessChart({
           accessibilityLayer={false}
           data={rows}
           barCategoryGap={rows.length > 24 ? 6 : 12}
-          margin={{ top: 16, right: 8, left: -18, bottom: 0 }}
+          margin={{ top: 16, right: 8, left: 6, bottom: 0 }}
+          onMouseMove={(state) => {
+            const nextReverseX = resolveTooltipReverseX(
+              state,
+              chartContainerRef.current?.clientWidth ?? 0,
+            );
+
+            if (nextReverseX !== null) {
+              setReverseTooltipX(nextReverseX);
+            }
+          }}
         >
           <CartesianGrid
             stroke="#d9e6e1"
@@ -538,13 +583,18 @@ function GlobalAccessChart({
           <YAxis
             allowDecimals={false}
             axisLine={false}
+            tickFormatter={formatCountLabel}
             tick={{ fill: "#698480", fontSize: 11 }}
             tickLine={false}
-            width={34}
+            width={yAxisWidth}
           />
           <Tooltip
+            allowEscapeViewBox={{ x: false, y: false }}
+            animationDuration={0}
             content={<TrendTooltip />}
             cursor={{ fill: "rgba(95, 122, 118, 0.06)" }}
+            isAnimationActive={false}
+            reverseDirection={{ x: reverseTooltipX, y: false }}
           />
           <Bar
             activeBar={false}
@@ -583,19 +633,35 @@ function GlobalAccessChart({
 
 function ServiceSparkline({ muted = false, rows }: ServiceSparklineProps) {
   const fillColor = muted ? "#c7d9d3" : "#63b2a1";
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const [reverseTooltipX, setReverseTooltipX] = useState(false);
 
   return (
-    <div className="h-[88px] w-full">
+    <div ref={chartContainerRef} className="h-[88px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           accessibilityLayer={false}
           data={rows}
           barCategoryGap={rows.length > 16 ? 4 : 8}
           margin={{ top: 4, right: 0, left: 0, bottom: 2 }}
+          onMouseMove={(state) => {
+            const nextReverseX = resolveTooltipReverseX(
+              state,
+              chartContainerRef.current?.clientWidth ?? 0,
+            );
+
+            if (nextReverseX !== null) {
+              setReverseTooltipX(nextReverseX);
+            }
+          }}
         >
           <Tooltip
+            allowEscapeViewBox={{ x: false, y: false }}
+            animationDuration={0}
             content={<TrendTooltip valueLabel="acessos" />}
             cursor={false}
+            isAnimationActive={false}
+            reverseDirection={{ x: reverseTooltipX, y: false }}
           />
           <Bar
             activeBar={false}
@@ -661,6 +727,8 @@ function ServiceDetailsModal({ service, onClose }: ServiceDetailsModalProps) {
     () => buildChartRows(service?.buckets ?? []),
     [service],
   );
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const yAxisWidth = getYAxisWidth(chartRows);
   const defaultBucket = useMemo(() => {
     if (!service) {
       return null;
@@ -688,6 +756,7 @@ function ServiceDetailsModal({ service, onClose }: ServiceDetailsModalProps) {
   const [selectedBucketStart, setSelectedBucketStart] = useState<string | null>(
     defaultChartRow?.bucketStart ?? null,
   );
+  const [reverseTooltipX, setReverseTooltipX] = useState(false);
 
   useEffect(() => {
     setSelectedBucketStart(defaultChartRow?.bucketStart ?? null);
@@ -729,12 +798,22 @@ function ServiceDetailsModal({ service, onClose }: ServiceDetailsModalProps) {
             </div>
           </div>
 
-          <div className="h-[260px] w-full">
+          <div ref={chartContainerRef} className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 accessibilityLayer={false}
                 data={chartRows}
-                margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+                margin={{ top: 8, right: 8, left: 6, bottom: 0 }}
+                onMouseMove={(state) => {
+                  const nextReverseX = resolveTooltipReverseX(
+                    state,
+                    chartContainerRef.current?.clientWidth ?? 0,
+                  );
+
+                  if (nextReverseX !== null) {
+                    setReverseTooltipX(nextReverseX);
+                  }
+                }}
               >
                 <CartesianGrid
                   stroke="#d9e6e1"
@@ -751,11 +830,19 @@ function ServiceDetailsModal({ service, onClose }: ServiceDetailsModalProps) {
                 <YAxis
                   allowDecimals={false}
                   axisLine={false}
+                  tickFormatter={formatCountLabel}
                   tick={{ fill: "#698480", fontSize: 11 }}
                   tickLine={false}
-                  width={34}
+                  width={yAxisWidth}
                 />
-                <Tooltip content={<TrendTooltip />} cursor={false} />
+                <Tooltip
+                  allowEscapeViewBox={{ x: false, y: false }}
+                  animationDuration={0}
+                  content={<TrendTooltip />}
+                  cursor={false}
+                  isAnimationActive={false}
+                  reverseDirection={{ x: reverseTooltipX, y: false }}
+                />
                 <Bar
                   activeBar={false}
                   dataKey="count"
