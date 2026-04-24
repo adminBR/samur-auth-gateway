@@ -552,8 +552,6 @@ export default function UserManager() {
 
   const visibleUsers = sortUsers(filteredUsers, sortKey, sortDirection);
 
-  const totalUsers = users.length;
-
   const loadPageData = async () => {
     setPageError(null);
 

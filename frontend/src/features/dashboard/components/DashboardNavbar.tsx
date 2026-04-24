@@ -138,13 +138,8 @@ export function DashboardNavbar({
               }`}
               title="Minha conta"
             >
-              <div
-                className={`flex items-center justify-center rounded-xl bg-[#2e7675]/10 text-[#2e7675] transition-[width,height] duration-300 ${
-                  isCondensed ? "h-6 w-6" : "h-8 w-8"
-                }`}
-              >
-                <UserCircle className="h-4.5 w-4.5" />
-              </div>
+              <UserCircle className="text-[#2e7675] h-4.5 w-4.5" />
+
               <div
                 className={`min-w-0 overflow-hidden transition-[max-width,opacity,transform] duration-[200ms] ${
                   isCondensed
@@ -169,25 +164,27 @@ export function DashboardNavbar({
             </button>
 
             {userMenuOpen && (
-              <div className="absolute right-0 top-full z-[80] mt-3 w-[280px] overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-[0_14px_30px_rgba(15,23,42,0.1)]">
-                <div className="border-b border-gray-100 bg-gray-50 px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#2e7675]/12 text-[#2e7675]">
-                      <UserCircle className="h-6 w-6" />
+              <div className="absolute right-0 top-full z-[80] mt-3 w-[296px] overflow-hidden rounded-[26px] border border-[#dbe7e2] bg-white shadow-[0_20px_44px_rgba(15,23,42,0.14)]">
+                <div className="border-b border-[#e2ece8] bg-[linear-gradient(180deg,#f9fdfb_0%,#f2f8f6_100%)] px-4 py-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-[#cae0d9] bg-[#2e7675]/12 text-[#2e7675]">
+                      <UserCircle className="h-7 w-7" />
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-gray-900">
+                    <div className="min-w-0 flex flex-col gap-1.5">
+                      <p className="truncate text-[15px] font-semibold leading-none text-[#172426]">
                         {userName || "Usuario"}
                       </p>
-                      <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#2e7675]/8 px-2 py-1 text-[11px] font-medium text-[#2e7675]">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        {isAdmin ? "Administrador" : "Usuario"}
+                      <div className="inline-flex w-fit items-center gap-1.5 self-start text-[#2e7675]">
+                        <ShieldCheck className="h-4 w-4 shrink-0" />
+                        <span className="rounded-full bg-[#2e7675]/9 py-1 text-[12px] font-semibold leading-none">
+                          {isAdmin ? "Administrador" : "Usuario"}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-2">
+                <div className="p-2.5">
                   {isAdmin && (
                     <>
                       <button

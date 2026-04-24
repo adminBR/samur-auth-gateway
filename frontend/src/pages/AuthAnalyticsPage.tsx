@@ -923,7 +923,6 @@ export default function AuthAnalyticsPage() {
   const [detailsServiceId, setDetailsServiceId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
-  const [userName, setUserName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [activePresetHours, setActivePresetHours] = useState<number | null>(24);
   const latestRequestRef = useRef(0);
@@ -1039,8 +1038,6 @@ export default function AuthAnalyticsPage() {
           navigate("/", { replace: true });
           return;
         }
-
-        setUserName(me.user_name);
         await loadAnalytics(defaultRange.start, defaultRange.end, {
           initialLoad: true,
         });
