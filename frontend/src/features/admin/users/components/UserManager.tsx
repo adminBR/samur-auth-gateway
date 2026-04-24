@@ -191,9 +191,6 @@ function UserFormModal({
       <div className="mx-auto my-4 flex w-full max-w-6xl flex-col rounded-[24px] border border-[#d7e4de] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <div className="flex items-start justify-between gap-4 border-b border-[#e3ede9] px-5 py-4 sm:px-6">
           <div>
-            <p className="dashboard-label text-[10px] text-[#2e7675]">
-              Administracao de usuarios
-            </p>
             <h2 className="font-dashboard-display mt-1.5 text-[1.35rem] font-bold text-[#203735]">
               {title}
             </h2>
@@ -844,21 +841,21 @@ export default function UserManager() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(46,118,117,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(46,118,117,0.04)_1px,transparent_1px)] bg-[size:34px_34px] opacity-60" />
       </div>
 
-      <div className="relative mx-auto max-w-[1640px] px-3 pb-5 pt-3 sm:px-4 lg:px-6">
+      <div className="relative mx-auto flex max-w-[1640px] flex-col gap-4 px-3 pb-8 pt-4 sm:px-4 lg:px-6">
         <header className="px-1 py-1">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-[#dce8e3] bg-[#f6fbf8]">
+            <div className="flex min-w-0 items-center gap-3 px-1 py-1">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-[#dce8e3] bg-[#f6fbf8]">
                 <img
                   src="/logo-colored.webp"
-                  alt="Usuarios"
-                  className="h-auto w-8 object-contain"
+                  alt="Analytics"
+                  className="h-auto w-7 object-contain"
                 />
               </div>
-              <div className="flex min-h-14 items-center">
-                <div className="text-center">
-                  <h1 className="font-dashboard-display text-[1.85rem] font-bold text-[#203735]">
-                    Usuarios
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-dashboard-display truncate text-[1.2rem] font-bold text-[#214f4e]">
+                    Gerenciador de usuários
                   </h1>
                 </div>
               </div>
@@ -877,9 +874,9 @@ export default function UserManager() {
           </div>
         </header>
 
-        <section className="mt-3 rounded-[26px] border border-[#d7e4de] bg-white px-4 py-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_180px_240px_108px]">
+        <section className="rounded-[26px] border border-[#d7e4de] bg-white px-4 py-3">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+            <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.9fr)_170px_220px_108px]">
               <label className="block">
                 <span className="sr-only">Buscar por nome</span>
                 <div className="relative">
@@ -948,15 +945,6 @@ export default function UserManager() {
             <div className="hidden h-11 w-px bg-[#dce8e3] xl:block" />
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:flex-none">
-              <div className="flex h-11 min-w-[154px] items-center justify-between rounded-[16px] border border-[#d7e4de] bg-[#f8fcfa] px-4">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
-                  Usuarios
-                </span>
-                <span className="font-dashboard-display text-[1.55rem] font-bold leading-none text-[#203735]">
-                  {totalUsers}
-                </span>
-              </div>
-
               <button
                 type="button"
                 onClick={openAddModal}

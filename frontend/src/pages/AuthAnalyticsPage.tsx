@@ -1,10 +1,4 @@
-import {
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -12,7 +6,6 @@ import {
   Clock3,
   RefreshCw,
   Server,
-  ShieldCheck,
   Users,
   X,
 } from "lucide-react";
@@ -445,29 +438,24 @@ function StatCard({ icon, label, tone = "brand", value }: StatCardProps) {
 
   return (
     <div
-      className={`flex h-full flex-col items-center justify-center rounded-[24px] border p-4 text-center shadow-[0_16px_40px_rgba(34,52,50,0.06)] ${toneClassName}`}
+      className={`flex h-full items-center justify-start gap-6 rounded-[24px] border p-6 shadow-[0_16px_40px_rgba(34,52,50,0.06)] ${toneClassName}`}
     >
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-[16px] bg-[#2e7675]/10 text-[#2e7675]">
-          {icon}
-        </div>
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[#2e7675]/10 text-[#2e7675] [&>svg]:h-5 [&>svg]:w-5">
+        {icon}
+      </div>
+      <div className="flex min-w-0 flex-col justify-center gap-1.5 text-left">
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#617b77]">
           {label}
         </p>
+        <p className="font-dashboard-display text-[1.9rem] font-bold leading-none text-[#203735]">
+          {value}
+        </p>
       </div>
-      <p className="mt-4 font-dashboard-display text-[1.9rem] font-bold leading-none text-[#203735]">
-        {value}
-      </p>
     </div>
   );
 }
 
-function PresetButton({
-  isActive,
-  isBusy,
-  label,
-  onClick,
-}: PresetButtonProps) {
+function PresetButton({ isActive, isBusy, label, onClick }: PresetButtonProps) {
   return (
     <button
       type="button"
@@ -937,9 +925,7 @@ export default function AuthAnalyticsPage() {
   const [isFetching, setIsFetching] = useState(false);
   const [userName, setUserName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [activePresetHours, setActivePresetHours] = useState<number | null>(
-    24,
-  );
+  const [activePresetHours, setActivePresetHours] = useState<number | null>(24);
   const latestRequestRef = useRef(0);
   const autoRefreshEnabledRef = useRef(false);
   const skipNextAutoRefreshRef = useRef(false);
@@ -1109,7 +1095,7 @@ export default function AuthAnalyticsPage() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(46,118,117,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(46,118,117,0.04)_1px,transparent_1px)] bg-[size:34px_34px] opacity-60" />
       </div>
 
-      <div className="relative mx-auto flex max-w-[1540px] flex-col gap-4 px-3 pb-8 pt-4 sm:px-4 lg:px-6">
+      <div className="relative mx-auto flex max-w-[1640px] flex-col gap-4 px-3 pb-8 pt-4 sm:px-4 lg:px-6">
         <nav className="px-1 py-1">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3 px-1 py-1">
@@ -1121,12 +1107,9 @@ export default function AuthAnalyticsPage() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="dashboard-label text-[10px] text-[#2e7675]">
-                  Hospital Samur
-                </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="font-dashboard-display truncate text-[1.2rem] font-bold text-[#214f4e]">
-                    Access analytics
+                    Logs de acesso
                   </h1>
                   {analytics && (
                     <span className="rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#476361]">
@@ -1138,10 +1121,6 @@ export default function AuthAnalyticsPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#d9e7e2] bg-[#f4faf7] px-4 py-2 text-[12px] font-semibold text-[#3e5d58]">
-                <ShieldCheck className="h-4 w-4 text-[#2e7675]" />
-                {userName || "Administrador"}
-              </div>
               <button
                 type="button"
                 onClick={() => navigate("/", { replace: true })}
@@ -1251,7 +1230,7 @@ export default function AuthAnalyticsPage() {
           />
           <StatCard
             icon={<Server className="h-4 w-4" />}
-            label="Servicos"
+            label="Serviços"
             value={serviceCharts.length}
           />
         </section>
@@ -1259,7 +1238,7 @@ export default function AuthAnalyticsPage() {
         <section className="rounded-[28px] border border-[#d7e4de] bg-white/90 p-4 shadow-[0_18px_50px_rgba(34,52,50,0.08)] backdrop-blur sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="font-dashboard-display text-[1.35rem] font-bold text-[#203735]">
+              <h2 className="font-dashboard-display truncate text-[1.2rem] font-bold text-[#214f4e]">
                 Servicos
               </h2>
             </div>
@@ -1302,7 +1281,9 @@ export default function AuthAnalyticsPage() {
 
                   <div className="mt-3 flex items-center justify-between text-[12px] font-medium text-[#5a7572]">
                     <span>{rows.length} pontos</span>
-                    <span>{hasAccess ? "Com movimentacao" : "Sem acessos"}</span>
+                    <span>
+                      {hasAccess ? "Com movimentacao" : "Sem acessos"}
+                    </span>
                   </div>
                 </button>
               );
