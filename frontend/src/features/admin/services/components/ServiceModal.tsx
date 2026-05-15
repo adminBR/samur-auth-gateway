@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-import { X, LoaderCircle, CheckCircle, XCircle } from "lucide-react";
+import { X, LoaderCircle, CheckCircle, XCircle, RotateCcw } from "lucide-react";
 import type { IndicatorCategoryOption } from "../../../indicators/config/serviceCategories";
 import type { EditableIndicatorService } from "../../../indicators/types/indicatorService";
 
@@ -58,11 +57,6 @@ export default function ServiceModal({
   onFileSelect,
   predictedServiceId = null,
 }: ServiceModalProps) {
-  const previousTemplatesRef = useRef<{
-    frontend: string;
-    backend: string;
-  } | null>(null);
-
   const title = isEdit
     ? `Editar Indicador - ID ${service.srv_id ?? "-"}`
     : "Adicionar Novo Indicador";
@@ -83,55 +77,21 @@ export default function ServiceModal({
   const frontendReference = buildFrontendReferenceBlock(serviceIdReference);
   const backendReference = buildBackendReferenceBlock(serviceIdReference);
 
-  useEffect(() => {
-    if (!isOpen || isEdit) {
-      previousTemplatesRef.current = null;
-      return;
-    }
-
-    const previousTemplates = previousTemplatesRef.current;
-    const currentFrontendBlock = service.rt_frontend_block ?? "";
-    const currentBackendBlock = service.rt_backend_block ?? "";
-
-    const shouldUpdateFrontend =
-      currentFrontendBlock.trim() === "" ||
-      currentFrontendBlock === previousTemplates?.frontend;
-    const shouldUpdateBackend =
-      currentBackendBlock.trim() === "" ||
-      currentBackendBlock === previousTemplates?.backend;
-
-    const nextFrontendBlock = shouldUpdateFrontend
-      ? frontendReference
-      : currentFrontendBlock;
-    const nextBackendBlock = shouldUpdateBackend
-      ? backendReference
-      : currentBackendBlock;
-
-    previousTemplatesRef.current = {
-      frontend: frontendReference,
-      backend: backendReference,
-    };
-
-    if (
-      nextFrontendBlock !== currentFrontendBlock ||
-      nextBackendBlock !== currentBackendBlock
-    ) {
-      onServiceChange({
-        ...service,
-        rt_frontend_block: nextFrontendBlock,
-        rt_backend_block: nextBackendBlock,
-      });
-    }
-  }, [
-    backendReference,
-    frontendReference,
-    isEdit,
-    isOpen,
-    onServiceChange,
-    service,
-  ]);
-
   if (!isOpen) return null;
+
+  const resetFrontendBlock = () => {
+    onServiceChange({
+      ...service,
+      rt_frontend_block: frontendReference,
+    });
+  };
+
+  const resetBackendBlock = () => {
+    onServiceChange({
+      ...service,
+      rt_backend_block: backendReference,
+    });
+  };
 
   const renderServiceIdValidation = (block?: string) => {
     if (!expectedServiceIdLine) {
@@ -326,33 +286,32 @@ export default function ServiceModal({
                 <h4 className="text-sm font-semibold text-gray-900">
                   Frontend (NGINX)
                 </h4>
-                <textarea
-                  value={service.rt_frontend_block ?? ""}
-                  onChange={(e) =>
-                    onServiceChange({
-                      ...service,
-                      rt_frontend_block: e.target.value,
-                    })
-                  }
-                  rows={15}
-                  className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
-                  placeholder="location / { ... }"
-                />
-                {renderServiceIdValidation(service.rt_frontend_block)}
-                <div className="flex items-center gap-2">
-                  {service.rt_frontend_block?.includes(
-                    "auth_request /_auth;",
-                  ) ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-500" />
+                <div className="relative">
+                  <textarea
+                    value={service.rt_frontend_block ?? ""}
+                    onChange={(e) =>
+                      onServiceChange({
+                        ...service,
+                        rt_frontend_block: e.target.value,
+                      })
+                    }
+                    rows={15}
+                    className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 pb-12 pr-24 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
+                    placeholder="location / { ... }"
+                  />
+                  {!isEdit && (
+                    <button
+                      type="button"
+                      onClick={resetFrontendBlock}
+                      className="absolute bottom-3 right-3 inline-flex items-center gap-2 rounded-lg border border-[#cfe2dc] bg-white/95 px-3 py-1.5 text-xs font-medium text-[#2e7675] shadow-sm transition-colors hover:bg-[#f4faf7] focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:ring-offset-2"
+                      title="Restaurar bloco de referencia do frontend"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span>Resetar</span>
+                    </button>
                   )}
-                  <span className="text-xs text-gray-600">
-                    {service.rt_frontend_block?.includes("auth_request /_auth;")
-                      ? "Solicitacao de autenticacao"
-                      : "Faltando linha: auth_request /_auth;"}
-                  </span>
                 </div>
+                {renderServiceIdValidation(service.rt_frontend_block)}
                 <div className="flex items-center gap-2">
                   {expectedFrontendLocation &&
                   service.rt_frontend_block?.includes(
@@ -377,33 +336,32 @@ export default function ServiceModal({
                 <h4 className="text-sm font-semibold text-gray-900">
                   Backend (NGINX)
                 </h4>
-                <textarea
-                  value={service.rt_backend_block ?? ""}
-                  onChange={(e) =>
-                    onServiceChange({
-                      ...service,
-                      rt_backend_block: e.target.value,
-                    })
-                  }
-                  rows={15}
-                  className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
-                  placeholder="location /api { ... }"
-                />
-                {renderServiceIdValidation(service.rt_backend_block)}
-                <div className="flex items-center gap-2">
-                  {service.rt_backend_block?.includes(
-                    "auth_request /_auth;",
-                  ) ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-500" />
+                <div className="relative">
+                  <textarea
+                    value={service.rt_backend_block ?? ""}
+                    onChange={(e) =>
+                      onServiceChange({
+                        ...service,
+                        rt_backend_block: e.target.value,
+                      })
+                    }
+                    rows={15}
+                    className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 pb-12 pr-24 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
+                    placeholder="location /api { ... }"
+                  />
+                  {!isEdit && (
+                    <button
+                      type="button"
+                      onClick={resetBackendBlock}
+                      className="absolute bottom-3 right-3 inline-flex items-center gap-2 rounded-lg border border-[#cfe2dc] bg-white/95 px-3 py-1.5 text-xs font-medium text-[#2e7675] shadow-sm transition-colors hover:bg-[#f4faf7] focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:ring-offset-2"
+                      title="Restaurar bloco de referencia do backend"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span>Resetar</span>
+                    </button>
                   )}
-                  <span className="text-xs text-gray-600">
-                    {service.rt_backend_block?.includes("auth_request /_auth;")
-                      ? "Solicitacao de autenticacao"
-                      : "Faltando linha: auth_request /_auth;"}
-                  </span>
                 </div>
+                {renderServiceIdValidation(service.rt_backend_block)}
               </div>
             </div>
           </div>

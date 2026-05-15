@@ -268,19 +268,18 @@ Capabilities:
 - edit `rt_backend_block`
 - toggle `rt_enabled`
 - show both NGINX editors at all times inside the service modal
-- prefill both NGINX editors with reference text using the predicted service ID on create
+- keep both NGINX editors empty by default on create
+- offer reset buttons that restore the frontend/backend reference text using the predicted service ID on create
 
 Important NGINX validation shown in the UI:
 
 - frontend block should include `set $service_id <srv_id>;`
-- frontend block should include `auth_request /_auth;`
 - frontend block should include the expected `location <path>`
 - backend block should include `set $service_id <srv_id>;`
-- backend block should include `auth_request /_auth;`
 
 Create-mode note:
 
-- when a new service is being added, the modal requests `GET /api_gateway/v1/services/next-id/` and uses that predicted value both to prefill the frontend/backend NGINX textareas and to validate the `set $service_id ...;` lines
+- when a new service is being added, the modal requests `GET /api_gateway/v1/services/next-id/` and uses that predicted value to validate the `set $service_id ...;` lines and to build the resettable frontend/backend reference snippets
 
 The modal does not generate the blocks for the admin; it validates what the admin typed.
 
