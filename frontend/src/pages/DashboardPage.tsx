@@ -109,6 +109,9 @@ export default function DashboardPage() {
     favoriteGroup,
     ...categoryGroups,
   ];
+  const visibleDashboardGroups = dashboardGroups.filter(
+    (category) => category.count > 0,
+  );
 
   const hasVisibleIndicators = filteredServices.length > 0;
   const hasAssignedIndicators = services.length > 0;
@@ -129,20 +132,20 @@ export default function DashboardPage() {
     setActiveCategory((prev) => {
       if (
         prev !== null &&
-        dashboardGroups.some((category) => category.value === prev)
+        visibleDashboardGroups.some((category) => category.value === prev)
       ) {
         return prev;
       }
 
-      return FAVORITES_SECTION_ID;
+      return visibleDashboardGroups[0]?.value ?? null;
     });
-  }, [dashboardGroups]);
+  }, [visibleDashboardGroups]);
 
   useEffect(() => {
     let rafId = 0;
     let ticking = false;
 
-    if (dashboardGroups.length === 0) {
+    if (visibleDashboardGroups.length === 0) {
       return;
     }
 
@@ -150,9 +153,9 @@ export default function DashboardPage() {
       const currentScrollTop = Math.max(window.scrollY, 0);
       const scrollTop = currentScrollTop + 200;
       let currentCategory: DashboardSectionId | null =
-        dashboardGroups[0]?.value ?? null;
+        visibleDashboardGroups[0]?.value ?? null;
 
-      dashboardGroups.forEach((category) => {
+      visibleDashboardGroups.forEach((category) => {
         const section = sectionRefs.current[getSectionKey(category.value)];
 
         if (section) {
@@ -199,7 +202,7 @@ export default function DashboardPage() {
       window.removeEventListener("scroll", handleScroll);
       window.cancelAnimationFrame(rafId);
     };
-  }, [dashboardGroups]);
+  }, [visibleDashboardGroups]);
 
   const refreshCategories = async () => {
     const request = await getServiceCategories();
@@ -471,14 +474,14 @@ export default function DashboardPage() {
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-[1640px] items-start gap-3 px-2 pb-8 pt-1 sm:px-3 lg:gap-4 lg:px-4">
         <DashboardSidebar
-          categoryGroups={dashboardGroups}
+          categoryGroups={visibleDashboardGroups}
           activeCategory={activeCategory}
           onSelectCategory={scrollToCategory}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <MobileCategoryTabs
-            categoryGroups={dashboardGroups}
+            categoryGroups={visibleDashboardGroups}
             activeCategory={activeCategory}
             onSelectCategory={scrollToCategory}
           />
@@ -487,7 +490,7 @@ export default function DashboardPage() {
             <div className="min-h-[260px]">
               {hasVisibleIndicators ? (
                 <div className="space-y-5">
-                  {dashboardGroups.map((category) => (
+                  {visibleDashboardGroups.map((category) => (
                     <IndicatorModuleSection
                       key={category.value}
                       category={category}
