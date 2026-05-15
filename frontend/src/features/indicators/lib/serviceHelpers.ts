@@ -23,7 +23,7 @@ export const buildDefaultIndicator = (
 ): EditableIndicatorService => ({
   srv_image: "/api/placeholder/200/150",
   srv_name: "",
-  srv_ip: "",
+  srv_ip: "indicadores.hospitalsamur.com.br/",
   srv_desc: "",
   srv_category: category,
   rt_frontend_block: "",
