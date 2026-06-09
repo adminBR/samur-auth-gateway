@@ -14,10 +14,11 @@ export interface User {
 
 export interface NewUserPayload {
   user_name: string;
-  user_pass: string;
+  user_pass?: string;
   is_admin?: boolean;
   access?: string;
   jwt_expiration: string;
+  is_tasy?: boolean;
 }
 
 export interface UpdateUserPayload {

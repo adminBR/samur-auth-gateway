@@ -526,28 +526,42 @@ class AdminAllUsersOperations(APIView):
         user_name = data.get('user_name')
         user_pass = data.get('user_pass')
         is_admin = data.get('is_admin', False)
+        is_tasy = bool(data.get('is_tasy', False))
         usr_access = data.get('access', "")
         jwt_expiration = normalize_jwt_expiration(data.get('jwt_expiration'))
+
+        user_name = str(user_name or "").strip()
 
         if not user_name:
             logger.warning(f"Admin {admin_user['user_id']} attempted to create user without user_name")
             raise ValidationError({"detail":"Missing 'user_name' field."})
-        if not user_pass:
+        if not is_tasy and not user_pass:
             logger.warning(f"Admin {admin_user['user_id']} attempted to create user without user_pass")
             raise ValidationError({"detail":"Missing 'user_pass' field."})
         
-        validate_password(user_pass)
+        if is_tasy:
+            user_name = normalize_tasy_username(user_name)
+            user_pass_processed = TASY_PASSWORD_PLACEHOLDER
+        else:
+            validate_password(user_pass)
+            user_name = user_name.lower()
+            user_pass_processed = user_pass
 
-        user_name = user_name.lower()
-        user_pass_processed = user_pass
-
-        logger.info(f"Admin {admin_user['user_id']} creating new user: {user_name}")
+        logger.info(
+            "Admin %s creating new user: %s (Tasy: %s)",
+            admin_user["user_id"],
+            user_name,
+            is_tasy,
+        )
 
         conn = get_db_connection()
         cur = conn.cursor()
         conn.autocommit = False
         try:
-            cur.execute("SELECT usr_id FROM usr_info WHERE usr_login = %s", (user_name,))
+            cur.execute(
+                "SELECT usr_id FROM usr_info WHERE UPPER(usr_login) = UPPER(%s)",
+                (user_name,),
+            )
             if cur.fetchone():
                 logger.warning(f"User creation failed by admin {admin_user['user_id']}: Username '{user_name}' already in use")
                 raise ValidationError({"detail":f"Username '{user_name}' already in use."})
@@ -563,7 +577,7 @@ class AdminAllUsersOperations(APIView):
                     usr_tasy
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING usr_id
-            """, (user_name, user_pass_processed, bool(is_admin), usr_access, datetime.now(tz=timezone.utc), jwt_expiration, False))
+            """, (user_name, user_pass_processed, bool(is_admin), usr_access, datetime.now(tz=timezone.utc), jwt_expiration, is_tasy))
             response = cur.fetchone()
             
             if(response and response[0]):
@@ -593,7 +607,7 @@ class AdminAllUsersOperations(APIView):
                     "is_admin": bool(is_admin),
                     "access": usr_access,
                     "jwt_expiration":jwt_expiration,
-                    "is_tasy": False,
+                    "is_tasy": is_tasy,
                 }
             }, status=status.HTTP_201_CREATED)
 

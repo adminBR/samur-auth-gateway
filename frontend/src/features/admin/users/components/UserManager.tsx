@@ -158,6 +158,7 @@ function UserFormModal({
   onClose,
   passwordPlaceholder,
   isTasyUser = false,
+  setIsTasyUser,
 }: {
   title: string;
   submitLabel: string;
@@ -179,6 +180,7 @@ function UserFormModal({
   onClose: () => void;
   passwordPlaceholder: string;
   isTasyUser?: boolean;
+  setIsTasyUser?: (value: boolean) => void;
 }) {
   const [serviceSearchTerm, setServiceSearchTerm] = useState("");
   const normalizedServiceSearch = serviceSearchTerm.trim().toLowerCase();
@@ -231,21 +233,46 @@ function UserFormModal({
                     : "Defina o identificador que sera usado para localizar esta conta."}
                 </p>
 
+                {setIsTasyUser ? (
+                  <label className="mt-3 flex items-start gap-3 rounded-[14px] border border-[#deebe6] bg-white px-3.5 py-3 text-sm text-[#355754]">
+                    <input
+                      type="checkbox"
+                      checked={isTasyUser}
+                      onChange={(event) => {
+                        setIsTasyUser(event.target.checked);
+                        if (event.target.checked) {
+                          setPassword("");
+                        }
+                      }}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2e7675] focus:ring-[#2e7675]"
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">
+                        Usuario Tasy
+                      </span>
+                      <span className="mt-1 block text-xs leading-6 text-[#68817d]">
+                        Cria a conta com senha interna TASY e valida o login no
+                        Oracle/Tasy.
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
+
                 <label className="block pt-3 text-sm font-semibold text-[#355754]">
                   Senha
                 </label>
                 <input
-                  type="password"
-                  value={password}
+                  type={isTasyUser ? "text" : "password"}
+                  value={isTasyUser ? "TASY" : password}
                   onChange={(event) => setPassword(event.target.value)}
+                  disabled={isTasyUser}
                   placeholder={passwordPlaceholder}
-                  className="mt-2 h-10 w-full rounded-[14px] border border-[#d7e4de] bg-white px-3.5 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40"
+                  className="mt-2 h-10 w-full rounded-[14px] border border-[#d7e4de] bg-white px-3.5 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 disabled:cursor-not-allowed disabled:bg-[#f4faf7] disabled:text-[#6c8581]"
                 />
                 {isTasyUser ? (
                   <p className="mt-1.5 text-xs leading-6 text-[#5b7672]">
-                    Usuario Tasy continua autenticando no sistema externo. Este
-                    campo permanece aqui apenas para manter o fluxo interno de
-                    edicao centralizado nesta tela.
+                    Usuario Tasy continua autenticando no sistema externo. A
+                    senha gravada localmente fica como TASY.
                   </p>
                 ) : (
                   <p className="mt-1.5 text-xs leading-6 text-[#68817d]">
@@ -495,6 +522,7 @@ export default function UserManager() {
 
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newIsTasy, setNewIsTasy] = useState(false);
   const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [newEndlessJwt, setNewEndlessJwt] = useState(false);
   const [newSelectedServiceIds, setNewSelectedServiceIds] = useState<
@@ -587,6 +615,7 @@ export default function UserManager() {
   const resetAddForm = () => {
     setNewUsername("");
     setNewPassword("");
+    setNewIsTasy(false);
     setNewIsAdmin(false);
     setNewEndlessJwt(false);
     setNewSelectedServiceIds(new Set());
@@ -663,7 +692,12 @@ export default function UserManager() {
   const handleAddUser = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (!newUsername.trim() || !newPassword.trim()) {
+    if (!newUsername.trim()) {
+      setModalError("Informe o usuario para criar a conta.");
+      return;
+    }
+
+    if (!newIsTasy && !newPassword.trim()) {
       setModalError("Informe usuario e senha para criar a conta.");
       return;
     }
@@ -673,10 +707,11 @@ export default function UserManager() {
 
     const payload: NewUserPayload = {
       user_name: newUsername.trim(),
-      user_pass: newPassword,
+      user_pass: newIsTasy ? undefined : newPassword,
       is_admin: newIsAdmin,
       access: Array.from(newSelectedServiceIds).join(","),
       jwt_expiration: newEndlessJwt ? "inf" : DEFAULT_JWT_EXPIRATION,
+      is_tasy: newIsTasy,
     };
 
     try {
@@ -1130,6 +1165,8 @@ export default function UserManager() {
           setUsername={setNewUsername}
           password={newPassword}
           setPassword={setNewPassword}
+          isTasyUser={newIsTasy}
+          setIsTasyUser={setNewIsTasy}
           isAdmin={newIsAdmin}
           setIsAdmin={setNewIsAdmin}
           endlessJwt={newEndlessJwt}

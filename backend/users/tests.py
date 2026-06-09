@@ -217,6 +217,51 @@ class AuthFlowTests(SimpleTestCase):
         )
 
     @patch(
+        "users.views.get_admin_user_from_token",
+        return_value={"user_id": 1, "user_name": "admin", "is_admin": True},
+    )
+    @patch("users.views.get_db_connection")
+    def test_admin_create_tasy_user_requires_only_username(
+        self,
+        mock_get_db_connection,
+        _mock_get_admin_user_from_token,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.side_effect = [
+            None,
+            (22,),
+        ]
+
+        response = self.client.post(
+            "/api_gateway/v1/users/admin/",
+            {
+                "user_name": "new.tasy",
+                "is_tasy": True,
+                "is_admin": False,
+                "access": "2,4",
+                "jwt_expiration": "inf",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["user"]["username"], "NEW.TASY")
+        self.assertTrue(response.data["user"]["is_tasy"])
+        self.assertEqual(response.data["user"]["access"], "2,4")
+        conn.commit.assert_called_once()
+
+        insert_call = next(
+            call
+            for call in cur.execute.call_args_list
+            if "INSERT INTO usr_info" in call.args[0]
+        )
+        self.assertEqual(insert_call.args[1][0], "NEW.TASY")
+        self.assertEqual(insert_call.args[1][1], "TASY")
+        self.assertEqual(insert_call.args[1][5], "inf")
+        self.assertTrue(insert_call.args[1][6])
+
+    @patch(
         "users.views.fetch_user_auth_context",
         return_value={
             "user_name": "alice",
