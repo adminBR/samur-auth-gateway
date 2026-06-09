@@ -53,7 +53,9 @@ export default function LoginPage() {
             "Servidor indisponivel. Tente novamente em alguns minutos.",
           );
         } else {
-          setErrorMessage("Nao foi possivel completar o login. Tente novamente.");
+          setErrorMessage(
+            "Nao foi possivel completar o login. Tente novamente.",
+          );
         }
 
         console.error("Login error:", err);
@@ -104,8 +106,8 @@ export default function LoginPage() {
                   Portal de Indicadores
                 </h1>
                 <p className="mt-5 text-base leading-8 text-white/78">
-                  Acesso interno para dashboards, BI, indicadores e servicos da
-                  operacao.
+                  Acesso interno para dashboards, BI, indicadores e serviços da
+                  operação.
                 </p>
               </div>
             </div>
