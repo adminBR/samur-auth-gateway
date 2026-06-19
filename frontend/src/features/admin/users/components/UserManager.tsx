@@ -96,7 +96,7 @@ function compareJwtExpiration(a: string, b: string) {
 }
 
 function formatJwtExpiration(value: string) {
-  return value === "inf" ? "Infinito" : "Padrao";
+  return value === "inf" ? "Infinito" : "Padrão";
 }
 
 function formatCreatedAt(value?: string) {
@@ -135,6 +135,51 @@ function sortUsers(users: User[], sortKey: SortKey, direction: SortDirection) {
   }
 
   return sorted;
+}
+
+function BinarySwitch({
+  checked,
+  onChange,
+  leftLabel,
+  rightLabel,
+  ariaLabel,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  leftLabel: string;
+  rightLabel: string;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={() => onChange(!checked)}
+      className="relative grid h-11 w-full grid-cols-2 items-center overflow-hidden rounded-[14px] border border-[#d7e4de] bg-[#eef6f3] p-1 text-[12px] font-semibold text-[#58726f] outline-none transition-colors focus:border-[#2e7675]/50 focus:ring-4 focus:ring-[#2e7675]/10"
+    >
+      <span
+        className={`pointer-events-none absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-[10px] bg-white shadow-[0_8px_18px_rgba(34,52,50,0.10)] transition-transform duration-200 ${
+          checked ? "translate-x-[calc(100%+4px)]" : "translate-x-0"
+        }`}
+      />
+      <span
+        className={`relative z-10 transition-colors ${
+          checked ? "text-[#6b8480]" : "text-[#203735]"
+        }`}
+      >
+        {leftLabel}
+      </span>
+      <span
+        className={`relative z-10 transition-colors ${
+          checked ? "text-[#203735]" : "text-[#6b8480]"
+        }`}
+      >
+        {rightLabel}
+      </span>
+    </button>
+  );
 }
 
 function UserFormModal({
@@ -209,120 +254,96 @@ function UserFormModal({
         </div>
 
         <form onSubmit={onSubmit} className="px-5 py-5 sm:px-6">
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(450px,1.2fr)]">
-            <div className="space-y-3">
-              <section className="rounded-[18px] border border-[#deebe6] bg-[#fbfdfc] p-4">
-                <h3 className="mb-3 text-sm font-semibold text-[#355754]">
+          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(450px,1.18fr)]">
+            <div className="space-y-7">
+              <section>
+                <h3 className="mb-4 text-sm font-semibold text-[#355754]">
                   Dados principais
                 </h3>
 
                 <label className="block text-sm font-semibold text-[#355754]">
-                  Usuario
+                  Usuário
                 </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(event) => setUsername?.(event.target.value)}
-                  disabled={isUsernameDisabled}
-                  placeholder="Digite o nome de usuario"
-                  className="mt-2 h-10 w-full rounded-[14px] border border-[#d7e4de] bg-white px-3.5 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 disabled:cursor-not-allowed disabled:text-[#6c8581]"
-                />
-                <p className="mt-1.5 text-xs leading-6 text-[#68817d]">
-                  {isUsernameDisabled
-                    ? "O nome de usuario fica bloqueado na edicao para preservar a referencia do cadastro."
-                    : "Defina o identificador que sera usado para localizar esta conta."}
-                </p>
 
-                {setIsTasyUser ? (
-                  <label className="mt-3 flex items-start gap-3 rounded-[14px] border border-[#deebe6] bg-white px-3.5 py-3 text-sm text-[#355754]">
+                <div
+                  className={`mt-2 grid gap-3 ${
+                    setIsTasyUser ? "sm:grid-cols-[minmax(0,1fr)_86px]" : ""
+                  }`}
+                >
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(event) => setUsername?.(event.target.value)}
+                    disabled={isUsernameDisabled}
+                    placeholder="Digite o nome de usuário"
+                    className="h-11 w-full rounded-[14px] border border-[#d7e4de] bg-white px-3.5 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 disabled:cursor-not-allowed disabled:bg-[#f7fbf9] disabled:text-[#6c8581]"
+                  />
+
+                  {setIsTasyUser ? (
+                    <label className="flex h-11 items-center justify-center gap-1.5 rounded-[14px] border border-[#d7e4de] bg-[#f8fcfa] px-2 text-[12px] font-semibold text-[#355754]">
+                      <input
+                        type="checkbox"
+                        checked={isTasyUser}
+                        onChange={(event) => {
+                          setIsTasyUser(event.target.checked);
+                          if (event.target.checked) {
+                            setPassword("");
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-[#2e7675] focus:ring-[#2e7675]"
+                      />
+                      Tasy
+                    </label>
+                  ) : null}
+                </div>
+
+                <div
+                  className={`grid transition-all duration-200 ease-out ${
+                    isTasyUser
+                      ? "mt-0 grid-rows-[0fr] opacity-0"
+                      : "mt-4 grid-rows-[1fr] opacity-100"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <label className="block text-sm font-semibold text-[#355754]">
+                      Senha
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={isTasyUser}
-                      onChange={(event) => {
-                        setIsTasyUser(event.target.checked);
-                        if (event.target.checked) {
-                          setPassword("");
-                        }
-                      }}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2e7675] focus:ring-[#2e7675]"
+                      type="password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      disabled={isTasyUser}
+                      placeholder={passwordPlaceholder}
+                      className="mt-2 h-11 w-full rounded-[14px] border border-[#d7e4de] bg-white px-3.5 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 disabled:cursor-not-allowed"
                     />
-                    <span className="min-w-0">
-                      <span className="block font-semibold">
-                        Usuario Tasy
-                      </span>
-                      <span className="mt-1 block text-xs leading-6 text-[#68817d]">
-                        Cria a conta com senha interna TASY e valida o login no
-                        Oracle/Tasy.
-                      </span>
-                    </span>
-                  </label>
-                ) : null}
-
-                <label className="block pt-3 text-sm font-semibold text-[#355754]">
-                  Senha
-                </label>
-                <input
-                  type={isTasyUser ? "text" : "password"}
-                  value={isTasyUser ? "TASY" : password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  disabled={isTasyUser}
-                  placeholder={passwordPlaceholder}
-                  className="mt-2 h-10 w-full rounded-[14px] border border-[#d7e4de] bg-white px-3.5 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 disabled:cursor-not-allowed disabled:bg-[#f4faf7] disabled:text-[#6c8581]"
-                />
-                {isTasyUser ? (
-                  <p className="mt-1.5 text-xs leading-6 text-[#5b7672]">
-                    Usuario Tasy continua autenticando no sistema externo. A
-                    senha gravada localmente fica como TASY.
-                  </p>
-                ) : (
-                  <p className="mt-1.5 text-xs leading-6 text-[#68817d]">
-                    Preencha apenas quando quiser definir ou alterar a senha
-                    usada neste painel.
-                  </p>
-                )}
+                  </div>
+                </div>
               </section>
 
-              <section className="rounded-[18px] border border-[#deebe6] bg-[#fbfdfc] p-4">
-                <h3 className="mb-3 text-sm font-semibold text-[#355754]">
-                  Permissoes e sessao
+              <section>
+                <h3 className="mb-4 text-sm font-semibold text-[#355754]">
+                  Permissões e sessão
                 </h3>
+                <p className="-mt-2 mb-4 text-xs leading-5 text-[#68817d]">
+                  Ajuste o tipo de perfil e a duração da sessão.
+                </p>
 
-                <div className="space-y-2.5">
-                  <label className="flex items-start gap-3 rounded-[14px] border border-[#deebe6] bg-white px-3.5 py-3 text-sm text-[#355754]">
-                    <input
-                      type="checkbox"
-                      checked={isAdmin}
-                      onChange={(event) => setIsAdmin(event.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2e7675] focus:ring-[#2e7675]"
-                    />
-                    <span className="min-w-0">
-                      <span className="block font-semibold">
-                        Perfil administrador
-                      </span>
-                      <span className="mt-1 block text-xs leading-6 text-[#68817d]">
-                        Libera acesso a usuarios, configuracoes, analytics e
-                        outros recursos administrativos.
-                      </span>
-                    </span>
-                  </label>
+                <div className="space-y-3">
+                  <BinarySwitch
+                    checked={isAdmin}
+                    onChange={setIsAdmin}
+                    leftLabel="Perfil normal"
+                    rightLabel="Administrador"
+                    ariaLabel="Tipo de perfil"
+                  />
 
-                  <label className="flex items-start gap-3 rounded-[14px] border border-[#deebe6] bg-white px-3.5 py-3 text-sm text-[#355754]">
-                    <input
-                      type="checkbox"
-                      checked={endlessJwt}
-                      onChange={(event) => setEndlessJwt(event.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2e7675] focus:ring-[#2e7675]"
-                    />
-                    <span className="min-w-0">
-                      <span className="block font-semibold">
-                        Sessao infinita
-                      </span>
-                      <span className="mt-1 block text-xs leading-6 text-[#68817d]">
-                        Mantem a sessao sem expiracao padrao. Indicado apenas
-                        para acessos controlados pela equipe.
-                      </span>
-                    </span>
-                  </label>
+                  <BinarySwitch
+                    checked={endlessJwt}
+                    onChange={setEndlessJwt}
+                    leftLabel="Sessão que desloga"
+                    rightLabel="Infinita"
+                    ariaLabel="Tipo de sessão"
+                  />
                 </div>
               </section>
 
@@ -333,8 +354,8 @@ function UserFormModal({
               ) : null}
             </div>
 
-            <section className="flex h-[420px] flex-col rounded-[18px] border border-[#deebe6] bg-[#f8fcfa] p-4 sm:h-[500px] lg:h-[560px]">
-              <div className="flex items-start justify-between gap-3 border-b border-[#deebe6] pb-3">
+            <section className="flex h-[420px] flex-col sm:h-[500px] lg:h-[560px]">
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-semibold text-[#355754]">
                     Indicadores liberados
@@ -354,25 +375,24 @@ function UserFormModal({
                     />
                   </div>
                 </div>
-                <div className="rounded-full border border-[#d6e4de] bg-white px-3 py-1 text-[11px] font-semibold text-[#476361]">
+                <div className="mt-0.5 rounded-full border border-[#d6e4de] bg-[#f8fcfa] px-3 py-1 text-[11px] font-semibold text-[#476361]">
                   {selectedServiceIds.size} selecionado(s)
                 </div>
               </div>
 
-              <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-[14px] border border-[#d6e4de] bg-white">
+              <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
                 {!services.length ? (
-                  <p className="px-4 py-4 text-sm text-[#5b7672]">
-                    Nenhum indicador disponivel para vinculacao.
+                  <p className="py-4 text-sm text-[#5b7672]">
+                    Nenhum indicador disponível para vinculação.
                   </p>
                 ) : !visibleServices.length ? (
-                  <p className="px-4 py-4 text-sm text-[#5b7672]">
+                  <p className="py-4 text-sm text-[#5b7672]">
                     Nenhum indicador encontrado para esta busca.
                   </p>
                 ) : (
-                  <div className="h-full overflow-y-auto">
-                    <table className="min-w-full border-collapse">
-                      <thead className="sticky top-0 z-10 bg-[#f4faf7]">
-                        <tr className="border-b border-[#dce8e3]">
+                  <table className="min-w-full border-collapse">
+                    <thead className="sticky top-0 z-10 bg-white">
+                      <tr className="border-b border-[#dce8e3]">
                           <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-[#58726f]">
                             ID
                           </th>
@@ -411,7 +431,6 @@ function UserFormModal({
                         ))}
                       </tbody>
                     </table>
-                  </div>
                 )}
               </div>
             </section>
@@ -462,11 +481,11 @@ function ConfirmDeleteModal({
           <AlertTriangle className="h-7 w-7" />
         </div>
         <h2 className="mt-4 text-center text-xl font-bold text-[#203735]">
-          Remover usuario
+          Remover usuário
         </h2>
         <p className="mt-3 text-center text-sm leading-7 text-[#5b7672]">
           Tem certeza que deseja remover <strong>{user.username}</strong>? Esta
-          acao nao pode ser desfeita.
+          ação não pode ser desfeita.
         </p>
 
         {error ? (
@@ -601,7 +620,7 @@ export default function UserManager() {
       const message =
         error?.response?.data?.detail ||
         error?.message ||
-        "Nao foi possivel carregar o gerenciamento de usuarios.";
+        "Não foi possível carregar o gerenciamento de usuários.";
       setPageError(message);
     } finally {
       setIsBootstrapping(false);
@@ -693,12 +712,12 @@ export default function UserManager() {
     event.preventDefault();
 
     if (!newUsername.trim()) {
-      setModalError("Informe o usuario para criar a conta.");
+      setModalError("Informe o usuário para criar a conta.");
       return;
     }
 
     if (!newIsTasy && !newPassword.trim()) {
-      setModalError("Informe usuario e senha para criar a conta.");
+      setModalError("Informe usuário e senha para criar a conta.");
       return;
     }
 
@@ -719,7 +738,7 @@ export default function UserManager() {
       await loadPageData();
       closeAllModals();
     } catch (error) {
-      handleApiError(error, "Nao foi possivel criar o usuario.");
+      handleApiError(error, "Não foi possível criar o usuário.");
     } finally {
       setIsSubmitting(false);
     }
@@ -733,7 +752,7 @@ export default function UserManager() {
     }
 
     if (isProtectedAdminUser(currentUser)) {
-      setModalError("O usuario admin principal nao pode ser editado.");
+      setModalError("O usuário admin principal não pode ser editado.");
       return;
     }
 
@@ -763,7 +782,7 @@ export default function UserManager() {
       !hasJwtChange &&
       !hasAccessChange
     ) {
-      setModalError("Nenhuma alteracao foi feita.");
+      setModalError("Nenhuma alteração foi feita.");
       return;
     }
 
@@ -775,7 +794,7 @@ export default function UserManager() {
       await loadPageData();
       closeAllModals();
     } catch (error) {
-      handleApiError(error, "Nao foi possivel atualizar o usuario.");
+      handleApiError(error, "Não foi possível atualizar o usuário.");
     } finally {
       setIsSubmitting(false);
     }
@@ -787,7 +806,7 @@ export default function UserManager() {
     }
 
     if (isProtectedAdminUser(currentUser)) {
-      setModalError("O usuario admin principal nao pode ser removido.");
+      setModalError("O usuário admin principal não pode ser removido.");
       return;
     }
 
@@ -799,7 +818,7 @@ export default function UserManager() {
       await loadPageData();
       closeAllModals();
     } catch (error) {
-      handleApiError(error, "Nao foi possivel remover o usuario.");
+      handleApiError(error, "Não foi possível remover o usuário.");
     } finally {
       setIsSubmitting(false);
     }
@@ -920,7 +939,7 @@ export default function UserManager() {
                     type="text"
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Buscar usuario"
+                    placeholder="Buscar usuário"
                     className="h-11 w-full rounded-[16px] border border-[#d7e4de] bg-[#f8fcfa] pl-11 pr-4 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40 focus:bg-white"
                   />
                 </div>
@@ -984,7 +1003,7 @@ export default function UserManager() {
                 className="inline-flex h-11 appearance-none items-center justify-center gap-2 rounded-[16px] border border-[#2e7675] bg-[#2e7675] px-5 text-[13px] font-semibold text-white outline-none transition-colors hover:bg-[#275f5e] focus:outline-none"
               >
                 <UserPlus className="h-4 w-4" />
-                Novo usuario
+                Novo usuário
               </button>
             </div>
           </div>
@@ -1008,7 +1027,7 @@ export default function UserManager() {
           {isBootstrapping ? (
             <div className="mt-8 flex flex-col items-center justify-center py-20 text-[#5b7672]">
               <LoaderCircle className="mb-3 h-10 w-10 animate-spin text-[#2e7675]" />
-              <p>Carregando usuarios e acessos...</p>
+              <p>Carregando usuários e acessos...</p>
             </div>
           ) : visibleUsers.length ? (
             <div className="mt-4 overflow-hidden rounded-[24px] border border-[#e1ebe7]">
@@ -1017,11 +1036,11 @@ export default function UserManager() {
                   <thead className="bg-[#f7fbf9]">
                     <tr>
                       {[
-                        { label: "Usuario", key: "username" },
+                        { label: "Usuário", key: "username" },
                         { label: "", key: "is_admin" },
                         { label: "Tasy", key: "is_tasy" },
                         { label: "Acessos", key: "access_count" },
-                        { label: "Sessao", key: "jwt_expiration" },
+                        { label: "Sessão", key: "jwt_expiration" },
                         { label: "Criado em", key: "created_at" },
                       ].map((column) => (
                         <th
@@ -1041,7 +1060,7 @@ export default function UserManager() {
                         </th>
                       ))}
                       <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-[0.12em] text-[#58726f]">
-                        Acoes
+                        Ações
                       </th>
                     </tr>
                   </thead>
@@ -1069,7 +1088,7 @@ export default function UserManager() {
                             </span>
                           ) : (
                             <span className="inline-flex rounded-full border border-[#dce8e3] bg-[#f8fcfa] px-2.5 py-1 text-[11px] font-semibold text-[#6b8480]">
-                              Nao
+                              Não
                             </span>
                           )}
                         </td>
@@ -1143,10 +1162,10 @@ export default function UserManager() {
                 <Users className="h-7 w-7" />
               </div>
               <h3 className="mt-4 font-dashboard-display text-[1.3rem] font-bold text-[#203735]">
-                Nenhum usuario encontrado
+                Nenhum usuário encontrado
               </h3>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-7 text-[#5b7672]">
-                Ajuste os filtros ou crie um novo usuario para comecar a montar
+                Ajuste os filtros ou crie um novo usuário para começar a montar
                 a base de acessos do painel.
               </p>
             </div>
@@ -1156,8 +1175,8 @@ export default function UserManager() {
 
       {showAddModal ? (
         <UserFormModal
-          title="Criar novo usuario"
-          submitLabel="Criar usuario"
+          title="Criar novo usuário"
+          submitLabel="Criar usuário"
           isLoading={isSubmitting}
           error={modalError}
           services={allServices}
@@ -1181,8 +1200,8 @@ export default function UserManager() {
 
       {showEditModal && currentUser ? (
         <UserFormModal
-          title="Editar usuario"
-          submitLabel="Salvar alteracoes"
+          title="Editar usuário"
+          submitLabel="Salvar alterações"
           isLoading={isSubmitting}
           error={modalError}
           services={allServices}
@@ -1200,7 +1219,7 @@ export default function UserManager() {
           onClose={closeAllModals}
           passwordPlaceholder={
             currentUser.is_tasy
-              ? "Campo opcional para manutencao interna"
+              ? "Campo opcional para manutenção interna"
               : "Preencha apenas se desejar alterar"
           }
           isTasyUser={Boolean(currentUser.is_tasy)}
