@@ -81,3 +81,68 @@ html {
 .recharts-rectangle:focus-visible {
   outline: none !important;
 }
+
+.nginx-workspace {
+  height: min(900px, 94vh);
+}
+
+.nginx-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.85fr);
+  overflow: hidden;
+}
+
+.nginx-workspace-pane {
+  min-height: 0;
+}
+
+.nginx-workspace-pane:first-child {
+  border-right-width: 1px;
+}
+
+.nginx-side-panel {
+  background: #fbfcfc;
+}
+
+.nginx-config-code {
+  background: #151b1d;
+  color: #f3f4f6;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.nginx-config-code::selection {
+  background: rgba(46, 118, 117, 0.6);
+}
+
+.nginx-output-code {
+  min-height: 170px;
+  background: #202729;
+  color: #d1d5db;
+  font-size: 11px;
+  line-height: 20px;
+}
+
+.nginx-publish-button {
+  background: #256160;
+}
+
+.nginx-publish-button:hover:not(:disabled) {
+  background: #1f4d4c;
+}
+
+@media (max-width: 1023px) {
+  .nginx-workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .nginx-workspace-pane {
+    min-height: 420px;
+  }
+
+  .nginx-workspace-pane:first-child {
+    border-right-width: 0;
+    border-bottom-width: 1px;
+  }
+}

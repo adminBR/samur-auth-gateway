@@ -262,15 +262,19 @@ Important service fields:
 | Method | Path | Auth | What it does | Source files |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api_gateway/v1/nginx/config/` | admin | Reads service blocks from the database, merges them into the header template, and returns the generated config text. Optional query param: `header` for override. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/nginx/nginx_builder.py`, `backend/nginx/reference.py` |
-| `POST` | `/api_gateway/v1/nginx/deploy/` | admin | Inserts a pending record into `services_conf_log`, pushes the config over SSH, runs `nginx -t`, and updates the log status. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
-| `POST` | `/api_gateway/v1/nginx/restore/` | admin | Restores the latest successful config from `services_conf_log` and redeploys it over SSH. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
+| `POST` | `/api_gateway/v1/nginx/deploy/` | admin | Saves a pending version, backs up the remote config, publishes over SSH, runs `nginx -t`, restarts NGINX on success, and rolls back automatically on failure. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
+| `POST` | `/api_gateway/v1/nginx/deploy/stream/` | admin | Performs the same deployment and streams NDJSON progress events for the admin interface. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
+| `POST` | `/api_gateway/v1/nginx/restore/` | admin | Restores the latest successful config from `services_conf_log`, validates it, and restarts NGINX. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
+| `POST` | `/api_gateway/v1/nginx/restore/stream/` | admin | Performs the same restore and streams NDJSON progress events for the admin interface. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 
 Current deployment implementation details:
 
 - remote config path: `/etc/nginx/sites-available/api-gateway.conf`
 - SSH connection code: `backend/infrastructure/managers.py`
-- current SSH host, port, user, and password are hardcoded in `backend/nginx/builder.py`
-- the deployed file is first uploaded to `/tmp/nginx-config-<uuid>.conf`, then moved into place, chmodded to `644`, and tested with `nginx -t`
+- SSH host, port, user, password/key, remote path, and restart command come from `backend/.env`
+- the candidate is uploaded to `/tmp/nginx-config-<uuid>.conf`, while the current remote file is copied to a unique backup
+- a passing `nginx -t` is required before `systemctl restart nginx`
+- a failed test or restart restores the previous file; failed rollback verification preserves the backup path for manual recovery
 
 ### Analytics
 

@@ -73,6 +73,14 @@ DJANGO_CORS_ALLOW_CREDENTIALS=True
 DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:1111
 
 DJANGO_LOG_LEVEL=INFO
+
+NGINX_SSH_HOST=192.168.1.49
+NGINX_SSH_PORT=22
+NGINX_SSH_USER=deployer
+NGINX_SSH_PASSWORD=change-me
+NGINX_SSH_KEY_PATH=
+NGINX_REMOTE_CONFIG_PATH=/etc/nginx/sites-available/api-gateway.conf
+NGINX_RESTART_COMMAND=systemctl restart nginx
 ```
 
 Notes:
@@ -81,6 +89,7 @@ Notes:
 - Tasy fallback auth values are read by [`backend/users/tasy_auth.py`](./backend/users/tasy_auth.py)
 - analytics log database values are read by [`backend/utils/analytics_database.py`](./backend/utils/analytics_database.py)
 - auth, cookie, CORS, logging, and host settings are read by [`backend/serviceauth/settings.py`](./backend/serviceauth/settings.py)
+- NGINX SSH deployment settings are read by [`backend/nginx/builder.py`](./backend/nginx/builder.py)
 - the env loader is implemented in [`backend/utils/env.py`](./backend/utils/env.py)
 
 ### 3. Create the NGINX reference/header file
