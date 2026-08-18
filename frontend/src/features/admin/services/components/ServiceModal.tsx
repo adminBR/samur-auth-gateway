@@ -1,4 +1,15 @@
-import { X, LoaderCircle, CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  X,
+  LoaderCircle,
+  CheckCircle,
+  XCircle,
+  PanelTop,
+  ChevronDown,
+  LayoutTemplate,
+  Server,
+  type LucideIcon,
+} from "lucide-react";
 import type { IndicatorCategoryOption } from "../../../indicators/config/serviceCategories";
 import type { EditableIndicatorService } from "../../../indicators/types/indicatorService";
 
@@ -16,6 +27,102 @@ interface ServiceModalProps {
   previewImage: string | null;
   onFileSelect: (file: File) => void;
   predictedServiceId?: number | null;
+}
+
+interface TemplateOption {
+  id: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  block: string;
+}
+
+function TemplateMenu({
+  templates,
+  title,
+  onSelect,
+}: {
+  templates: TemplateOption[];
+  title: string;
+  onSelect: (block: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={menuRef} className="absolute bottom-3 right-3">
+      <button
+        type="button"
+        onClick={() => setIsOpen((menuIsOpen) => !menuIsOpen)}
+        className="inline-flex items-center gap-2 rounded-lg border border-[#cfe2dc] bg-white/95 px-3 py-1.5 text-xs font-medium text-[#2e7675] shadow-sm transition-colors hover:bg-[#f4faf7] focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:ring-offset-2"
+        title={title}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+      >
+        <LayoutTemplate className="h-3.5 w-3.5" />
+        <span>Templates</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          role="menu"
+          className="absolute bottom-full right-0 z-20 mb-2 w-60 overflow-hidden rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl"
+        >
+          {templates.map((template) => {
+            const TemplateIcon = template.icon;
+
+            return (
+              <button
+                key={template.id}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onSelect(template.block);
+                  setIsOpen(false);
+                }}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-[#f4faf7] focus:bg-[#f4faf7] focus:outline-none"
+              >
+                <TemplateIcon className="h-4 w-4 shrink-0 text-[#2e7675]" />
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold text-gray-800">
+                    {template.label}
+                  </span>
+                  <span className="block text-[11px] text-gray-500">
+                    {template.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const buildFrontendReferenceBlock = (
@@ -42,6 +149,99 @@ const buildBackendReferenceBlock = (
         proxy_http_version 1.1;
     }`;
 
+const normalizeLocationPath = (path: string) => {
+  const trimmedPath = path.trim();
+  if (!trimmedPath) {
+    return "/novo_caminho/";
+  }
+
+  const withLeadingSlash = trimmedPath.startsWith("/")
+    ? trimmedPath
+    : `/${trimmedPath}`;
+
+  return withLeadingSlash.endsWith("/")
+    ? withLeadingSlash
+    : `${withLeadingSlash}/`;
+};
+
+const slugifyLocationName = (value: string) => {
+  const slug = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return normalizeLocationPath(slug);
+};
+
+const getLocationPathFromBlock = (block?: string | null) => {
+  const match = block?.match(/location\s+([^\s{]+)\s*\{/);
+  return match?.[1] ? normalizeLocationPath(match[1]) : null;
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+const escapeSingleQuotedNginxValue = (value: string) =>
+  escapeHtml(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+
+const buildIframeFrontendBlock = ({
+  serviceId,
+  serviceName,
+  iframeSrc,
+  locationPath,
+}: {
+  serviceId: number | string;
+  serviceName: string;
+  iframeSrc: string;
+  locationPath: string;
+}) => {
+  const title = escapeSingleQuotedNginxValue(serviceName.trim() || "Indicador");
+  const src = escapeSingleQuotedNginxValue(iframeSrc.trim() || "https://app.powerbi.com/view?r=");
+
+  return `location ${locationPath} {
+    set $service_id ${serviceId};
+
+    error_page 401 = @api_err401;
+    error_page 403 = @api_err403;
+
+    default_type text/html;
+    add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+
+    return 200 '<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    iframe {
+      border: 0;
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <iframe
+    src="${src}"
+    allowfullscreen="true">
+  </iframe>
+</body>
+</html>';
+}`;
+};
+
 export default function ServiceModal({
   isOpen,
   isLoading,
@@ -67,29 +267,70 @@ export default function ServiceModal({
   const expectedServiceIdLine =
     resolvedServiceId !== null ? `set $service_id ${resolvedServiceId};` : null;
   const normalizedTarget = service.srv_ip.trim();
+  const isExternalUrl = /^https?:\/\//i.test(normalizedTarget);
   const firstSlashIndex = normalizedTarget.indexOf("/");
   const rawPath =
-    firstSlashIndex >= 0 ? normalizedTarget.slice(firstSlashIndex).trim() : "";
+    !isExternalUrl && firstSlashIndex >= 0
+      ? normalizedTarget.slice(firstSlashIndex).trim()
+      : "";
   const expectedFrontendLocation = rawPath
     ? `location ${rawPath.startsWith("/") ? rawPath : `/${rawPath}`}`
     : null;
   const serviceIdReference = resolvedServiceId ?? "{proximo_id}";
   const frontendReference = buildFrontendReferenceBlock(serviceIdReference);
   const backendReference = buildBackendReferenceBlock(serviceIdReference);
+  const iframeLocationPath =
+    getLocationPathFromBlock(service.rt_frontend_block) ||
+    slugifyLocationName(service.srv_name);
+  const isIframeFrontendBlock = Boolean(
+    service.rt_frontend_block?.includes("return 200 '<!doctype html>") &&
+      service.rt_frontend_block.includes("<iframe"),
+  );
+  const iframeFrontendReference = buildIframeFrontendBlock({
+    serviceId: serviceIdReference,
+    serviceName: service.srv_name,
+    iframeSrc: service.srv_ip,
+    locationPath: iframeLocationPath,
+  });
+  const frontendTemplates: TemplateOption[] = [
+    {
+      id: "normal",
+      label: "Conexão normal",
+      description: "Conexão via proxy.",
+      icon: Server,
+      block: frontendReference,
+    },
+    {
+      id: "iframe",
+      label: "Iframe",
+      description: "Página HTML incorporada.",
+      icon: PanelTop,
+      block: iframeFrontendReference,
+    },
+  ];
+  const backendTemplates: TemplateOption[] = [
+    {
+      id: "normal",
+      label: "Conexão normal",
+      description: "Conexão via proxy para API.",
+      icon: Server,
+      block: backendReference,
+    },
+  ];
 
   if (!isOpen) return null;
 
-  const resetFrontendBlock = () => {
+  const applyFrontendTemplate = (block: string) => {
     onServiceChange({
       ...service,
-      rt_frontend_block: frontendReference,
+      rt_frontend_block: block,
     });
   };
 
-  const resetBackendBlock = () => {
+  const applyBackendTemplate = (block: string) => {
     onServiceChange({
       ...service,
-      rt_backend_block: backendReference,
+      rt_backend_block: block,
     });
   };
 
@@ -296,38 +537,36 @@ export default function ServiceModal({
                       })
                     }
                     rows={15}
-                    className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 pb-12 pr-24 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
+                    className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 pb-12 pr-32 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
                     placeholder="location / { ... }"
                   />
-                  {!isEdit && (
-                    <button
-                      type="button"
-                      onClick={resetFrontendBlock}
-                      className="absolute bottom-3 right-3 inline-flex items-center gap-2 rounded-lg border border-[#cfe2dc] bg-white/95 px-3 py-1.5 text-xs font-medium text-[#2e7675] shadow-sm transition-colors hover:bg-[#f4faf7] focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:ring-offset-2"
-                      title="Restaurar bloco de referencia do frontend"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>Resetar</span>
-                    </button>
-                  )}
+                  <TemplateMenu
+                    templates={frontendTemplates}
+                    title="Selecionar template do frontend"
+                    onSelect={applyFrontendTemplate}
+                  />
                 </div>
                 {renderServiceIdValidation(service.rt_frontend_block)}
                 <div className="flex items-center gap-2">
-                  {expectedFrontendLocation &&
-                  service.rt_frontend_block?.includes(
-                    expectedFrontendLocation,
-                  ) ? (
+                  {(isIframeFrontendBlock && getLocationPathFromBlock(service.rt_frontend_block)) ||
+                  (expectedFrontendLocation &&
+                    service.rt_frontend_block?.includes(
+                      expectedFrontendLocation,
+                    )) ? (
                     <CheckCircle className="h-4 w-4 text-green-500" />
                   ) : (
                     <XCircle className="h-4 w-4 text-red-500" />
                   )}
                   <span className="text-xs text-gray-600">
-                    {expectedFrontendLocation &&
-                    service.rt_frontend_block?.includes(
-                      expectedFrontendLocation,
-                    )
-                      ? "Localizacao do frontend correspondente"
-                      : `Faltando linha: ${expectedFrontendLocation ?? "location /caminho"}`}
+                    {isIframeFrontendBlock &&
+                    getLocationPathFromBlock(service.rt_frontend_block)
+                      ? "Localização do iframe definida"
+                      : expectedFrontendLocation &&
+                          service.rt_frontend_block?.includes(
+                            expectedFrontendLocation,
+                          )
+                        ? "Localização do frontend correspondente"
+                        : `Faltando linha: ${expectedFrontendLocation ?? "location /caminho"}`}
                   </span>
                 </div>
               </div>
@@ -346,20 +585,14 @@ export default function ServiceModal({
                       })
                     }
                     rows={15}
-                    className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 pb-12 pr-24 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
+                    className="block w-full whitespace-pre rounded-lg border border-gray-300 px-3 py-2 pb-12 pr-32 font-mono shadow-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2e7675] sm:text-sm"
                     placeholder="location /api { ... }"
                   />
-                  {!isEdit && (
-                    <button
-                      type="button"
-                      onClick={resetBackendBlock}
-                      className="absolute bottom-3 right-3 inline-flex items-center gap-2 rounded-lg border border-[#cfe2dc] bg-white/95 px-3 py-1.5 text-xs font-medium text-[#2e7675] shadow-sm transition-colors hover:bg-[#f4faf7] focus:outline-none focus:ring-2 focus:ring-[#2e7675] focus:ring-offset-2"
-                      title="Restaurar bloco de referencia do backend"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>Resetar</span>
-                    </button>
-                  )}
+                  <TemplateMenu
+                    templates={backendTemplates}
+                    title="Selecionar template do backend"
+                    onSelect={applyBackendTemplate}
+                  />
                 </div>
                 {renderServiceIdValidation(service.rt_backend_block)}
               </div>
