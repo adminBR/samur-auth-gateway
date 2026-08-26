@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path,include
 
-from .views import UserRegister,UserLogin,ValidateToken,RefreshToken,UserLogout,AdminAllUsersOperations, AdminSingleUserOperations,AdminListAllServicesView,UserMe
+from .views import UserRegister,UserLogin,ValidateToken,RefreshToken,UserLogout,AdminAllUsersOperations, AdminSingleUserOperations,AdminListAllServicesView,AdminUserServiceAccessOperations,UserMe
 
 urlpatterns = [
     #path('register/',UserRegister.as_view()),
@@ -12,5 +12,6 @@ urlpatterns = [
     path('refresh/', RefreshToken.as_view()),
     path('admin/', AdminAllUsersOperations.as_view(), name='admin-users-list-create'),
     path('admin/<int:target_user_id>/', AdminSingleUserOperations.as_view(), name='admin-user-detail-operations'),
+    path('admin/<int:target_user_id>/services/<int:service_id>/', AdminUserServiceAccessOperations.as_view(), name='admin-user-service-access'),
      path('admin/services/all/', AdminListAllServicesView.as_view(), name='admin-list-all-services'),
 ]

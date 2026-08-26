@@ -64,8 +64,6 @@ Source of truth for the gateway flow:
   - loads the machine-local or example header template
 - `backend/infrastructure/managers.py`
   - SSH connection and remote `nginx -t` execution
-- `backend/integrations/`
-  - API-key authenticated FormManager page, user-access, and NGINX publish API
 - `backend/workorders/views.py`
   - work-order endpoint
 - `backend/workorders/services.py`
@@ -225,6 +223,8 @@ Cookie names are configurable:
 | `GET` | `/api_gateway/v1/users/admin/<target_user_id>/` | admin | Returns a single user record. | `backend/users/urls.py`, `backend/users/views.py` |
 | `PUT` | `/api_gateway/v1/users/admin/<target_user_id>/` | admin | Updates password, admin flag, service access list, or `jwt_expiration`. Prevents self de-admin. | `backend/users/urls.py`, `backend/users/views.py` |
 | `DELETE` | `/api_gateway/v1/users/admin/<target_user_id>/` | admin | Deletes a user. Prevents self delete. | `backend/users/urls.py`, `backend/users/views.py` |
+| `PUT` | `/api_gateway/v1/users/admin/<target_user_id>/services/<service_id>/` | admin | Grants one service without replacing the user's other service access. | `backend/users/urls.py`, `backend/users/views.py` |
+| `DELETE` | `/api_gateway/v1/users/admin/<target_user_id>/services/<service_id>/` | admin | Revokes one service and its favorite without replacing other access. | `backend/users/urls.py`, `backend/users/views.py` |
 | `GET` | `/api_gateway/v1/users/admin/services/all/` | admin | Lists all services for the user-management UI. | `backend/users/urls.py`, `backend/users/views.py` |
 
 Notes:
@@ -264,6 +264,7 @@ Important service fields:
 | Method | Path | Auth | What it does | Source files |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api_gateway/v1/nginx/config/` | admin | Reads service blocks from the database, merges them into the header template, and returns the generated config text. Optional query param: `header` for override. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/nginx/nginx_builder.py`, `backend/nginx/reference.py` |
+| `POST` | `/api_gateway/v1/nginx/publish/` | admin | Generates and transactionally publishes the current database config. Returns `success: true` only after validation and restart succeed. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 | `POST` | `/api_gateway/v1/nginx/deploy/` | admin | Saves a pending version, backs up the remote config, publishes over SSH, runs `nginx -t`, restarts NGINX on success, and rolls back automatically on failure. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 | `POST` | `/api_gateway/v1/nginx/deploy/stream/` | admin | Performs the same deployment and streams NDJSON progress events for the admin interface. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 | `POST` | `/api_gateway/v1/nginx/restore/` | admin | Restores the latest successful config from `services_conf_log`, validates it, and restarts NGINX. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
@@ -277,18 +278,6 @@ Current deployment implementation details:
 - the candidate is uploaded to `/tmp/nginx-config-<uuid>.conf`, while the current remote file is copied to a unique backup
 - a passing `nginx -t` is required before `systemctl restart nginx`
 - a failed test or restart restores the previous file; failed rollback verification preserves the backup path for manual recovery
-
-### FormManager Integration
-
-The server-to-server API is mounted at `/api_gateway/v1/integrations/formmanager/`.
-It uses `FORMMANAGER_API_KEY`, not a portal user JWT. It lists portal users, creates
-and edits services constrained to `/formmanager/<slug>/`, grants or revokes one
-service ID in `usr_info.usr_access`, and can generate and publish the current NGINX
-configuration through the standard rollback-safe deployment pipeline.
-
-Full request and response documentation:
-
-- `backend/FORMMANAGER_INTEGRATION.md`
 
 ### Analytics
 

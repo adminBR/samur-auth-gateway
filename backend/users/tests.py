@@ -374,6 +374,74 @@ class AuthFlowTests(SimpleTestCase):
         self.assertEqual(response.data["detail"], "Access denied to this service")
 
 
+class AdminUserServiceAccessTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+
+    @patch(
+        "users.views.get_admin_user_from_token",
+        return_value={"user_id": 1, "user_name": "admin", "is_admin": True},
+    )
+    @patch("users.views.get_db_connection")
+    def test_grant_preserves_existing_service_access(
+        self,
+        get_db_connection,
+        _get_admin_user,
+    ):
+        from users.views import AdminUserServiceAccessOperations
+
+        conn = get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.side_effect = [(1,), ("alice", "2,5")]
+        request = self.factory.put("/", {}, format="json")
+
+        response = AdminUserServiceAccessOperations().put(
+            request,
+            target_user_id=7,
+            service_id=42,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["changed"])
+        self.assertEqual(response.data["user"]["access"], "2,5,42")
+        cur.execute.assert_any_call(
+            "UPDATE usr_info SET usr_access = %s WHERE usr_id = %s",
+            ("2,5,42", 7),
+        )
+        conn.commit.assert_called_once()
+
+    @patch(
+        "users.views.get_admin_user_from_token",
+        return_value={"user_id": 1, "user_name": "admin", "is_admin": True},
+    )
+    @patch("users.views.get_db_connection")
+    def test_revoke_removes_only_requested_service_and_favorite(
+        self,
+        get_db_connection,
+        _get_admin_user,
+    ):
+        from users.views import AdminUserServiceAccessOperations
+
+        conn = get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.side_effect = [(1,), ("alice", "2,42,5")]
+        request = self.factory.delete("/")
+
+        response = AdminUserServiceAccessOperations().delete(
+            request,
+            target_user_id=7,
+            service_id=42,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["changed"])
+        self.assertEqual(response.data["user"]["access"], "2,5")
+        executed_queries = [call.args[0] for call in cur.execute.call_args_list]
+        self.assertTrue(
+            any(query.startswith("DELETE FROM usr_favorite_services") for query in executed_queries)
+        )
+
+
 class TasyAuthTests(SimpleTestCase):
     @patch("users.tasy_auth._run_tasy_query")
     def test_authenticate_tasy_user_normalizes_database_username_comparison(

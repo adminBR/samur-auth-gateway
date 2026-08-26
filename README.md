@@ -81,12 +81,6 @@ NGINX_SSH_PASSWORD=change-me
 NGINX_SSH_KEY_PATH=
 NGINX_REMOTE_CONFIG_PATH=/etc/nginx/sites-available/api-gateway.conf
 NGINX_RESTART_COMMAND=systemctl restart nginx
-
-FORMMANAGER_API_KEY=replace-with-a-long-random-secret
-FORMMANAGER_PATH_PREFIX=/formmanager
-FORMMANAGER_PUBLIC_HOST=indicadores.hospitalsamur.com.br
-FORMMANAGER_PUBLIC_SCHEME=https
-FORMMANAGER_UPSTREAM_ORIGIN=http://127.0.0.1:3000
 ```
 
 Notes:
@@ -233,8 +227,8 @@ If you later introduce frontend env vars, document them in this README and the f
   [`backend/BACKEND_REFERENCE.md`](./backend/BACKEND_REFERENCE.md)
 - frontend reference:
   [`frontend/FRONTEND_DESIGN_STRUCTURE.md`](./frontend/FRONTEND_DESIGN_STRUCTURE.md)
-- FormManager server-to-server API handoff:
-  [`backend/FORMMANAGER_INTEGRATION.md`](./backend/FORMMANAGER_INTEGRATION.md)
+- admin API handoff for external systems:
+  [`backend/ADMIN_API.md`](./backend/ADMIN_API.md)
 
 ## Summary
 

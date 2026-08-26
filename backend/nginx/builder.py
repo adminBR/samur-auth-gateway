@@ -315,6 +315,23 @@ class NginxConfigGeneratorView(APIView):
         )
 
 
+class NginxConfigPublishView(APIView):
+    """Generate and transactionally deploy the current database configuration."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request):
+        auth_error = _authenticate_admin(request)
+        if auth_error:
+            return auth_error
+
+        result, response_status = publish_current_nginx_config()
+        return Response(
+            {"success": response_status < 400, **result},
+            status=response_status,
+        )
+
+
 class NginxConfigDeployView(APIView):
     permission_classes = [IsAuthenticated]
 

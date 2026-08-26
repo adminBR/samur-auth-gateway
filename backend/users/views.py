@@ -795,7 +795,120 @@ class AdminSingleUserOperations(APIView):
             conn.close()
         
         return Response({"response": f"User ID {target_user_id} deleted successfully."}, status=status.HTTP_200_OK)
-            
+
+
+class AdminUserServiceAccessOperations(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def _change_access(self, request, target_user_id, service_id, *, grant):
+        admin_user = get_admin_user_from_token(request)
+        conn = get_db_connection()
+        cur = conn.cursor()
+        conn.autocommit = False
+
+        try:
+            cur.execute(
+                "SELECT 1 FROM services_info WHERE srv_id = %s FOR SHARE",
+                (service_id,),
+            )
+            if not cur.fetchone():
+                return Response(
+                    {"detail": "Service not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            cur.execute(
+                "SELECT usr_login, usr_access FROM usr_info WHERE usr_id = %s FOR UPDATE",
+                (target_user_id,),
+            )
+            user = cur.fetchone()
+            if not user:
+                return Response(
+                    {"detail": "User not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            username, raw_access = user
+            access_ids = []
+            for item in str(raw_access or "").split(","):
+                normalized_item = item.strip()
+                if normalized_item and normalized_item not in access_ids:
+                    access_ids.append(normalized_item)
+
+            service_id_text = str(service_id)
+            had_access = service_id_text in access_ids
+            if grant and not had_access:
+                access_ids.append(service_id_text)
+            elif not grant and had_access:
+                access_ids.remove(service_id_text)
+
+            changed = had_access != grant
+            if changed:
+                cur.execute(
+                    "UPDATE usr_info SET usr_access = %s WHERE usr_id = %s",
+                    (",".join(access_ids), target_user_id),
+                )
+
+            if not grant:
+                cur.execute(
+                    "DELETE FROM usr_favorite_services WHERE usr_id = %s AND srv_id = %s",
+                    (target_user_id, service_id),
+                )
+
+            conn.commit()
+            logger.info(
+                "Admin %s %s service %s for user %s",
+                admin_user["user_id"],
+                "granted" if grant else "revoked",
+                service_id,
+                target_user_id,
+            )
+            return Response(
+                {
+                    "changed": changed,
+                    "service_id": service_id,
+                    "has_access": grant,
+                    "user": {
+                        "id": target_user_id,
+                        "username": username,
+                        "access": ",".join(access_ids),
+                    },
+                }
+            )
+        except psycopg2.Error as db_error:
+            conn.rollback()
+            logger.error(
+                "Database error changing service access for user %s: %s",
+                target_user_id,
+                db_error,
+                exc_info=True,
+            )
+            raise APIException({"detail": f"Database error: {db_error}"})
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cur.close()
+            conn.close()
+
+    def put(self, request, target_user_id, service_id):
+        return self._change_access(
+            request,
+            target_user_id,
+            service_id,
+            grant=True,
+        )
+
+    def delete(self, request, target_user_id, service_id):
+        return self._change_access(
+            request,
+            target_user_id,
+            service_id,
+            grant=False,
+        )
+
+
 class AdminListAllServicesView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]

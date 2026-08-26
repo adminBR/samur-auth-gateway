@@ -1,5 +1,9 @@
-from django.test import SimpleTestCase
+from unittest.mock import patch
 
+from django.test import SimpleTestCase
+from rest_framework.test import APIRequestFactory
+
+from .builder import NginxConfigPublishView
 from .nginx_builder import NginxConfigBuilder
 from .reference import GENERATED_PATHS_PLACEHOLDER
 
@@ -47,3 +51,24 @@ class NginxConfigBuilderTests(SimpleTestCase):
 
         self.assertNotIn(GENERATED_PATHS_PLACEHOLDER, config)
         self.assertTrue(config.rstrip().endswith("}"))
+
+
+class NginxConfigPublishTests(SimpleTestCase):
+    @patch("nginx.builder._authenticate_admin", return_value=None)
+    @patch("nginx.builder.publish_current_nginx_config")
+    def test_publish_returns_explicit_success(self, publish, _authenticate_admin):
+        publish.return_value = (
+            {
+                "status_label": "passed",
+                "services_count": 12,
+                "deployment": {"deployed": True},
+            },
+            200,
+        )
+        request = APIRequestFactory().post("/", {}, format="json")
+
+        response = NginxConfigPublishView().post(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["services_count"], 12)
