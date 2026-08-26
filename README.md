@@ -8,7 +8,7 @@ Centralized authentication and routing solution for a microservices environment.
   React + Vite portal for login, indicator access, admin user management, service management, access analytics, and NGINX publishing
 - `backend/`
   Django REST backend for auth, service CRUD, access analytics queries, NGINX config generation/deploy, and work-order endpoints
-- `backend/nginx/header.local.conf`
+- `backend/header.local.conf`
   machine-local NGINX header template used as the base for generated gateway config
 
 ## Requirements
@@ -81,6 +81,12 @@ NGINX_SSH_PASSWORD=change-me
 NGINX_SSH_KEY_PATH=
 NGINX_REMOTE_CONFIG_PATH=/etc/nginx/sites-available/api-gateway.conf
 NGINX_RESTART_COMMAND=systemctl restart nginx
+
+FORMMANAGER_API_KEY=replace-with-a-long-random-secret
+FORMMANAGER_PATH_PREFIX=/formmanager
+FORMMANAGER_PUBLIC_HOST=indicadores.hospitalsamur.com.br
+FORMMANAGER_PUBLIC_SCHEME=https
+FORMMANAGER_UPSTREAM_ORIGIN=http://127.0.0.1:3000
 ```
 
 Notes:
@@ -96,16 +102,16 @@ Notes:
 
 The backend NGINX generator looks for:
 
-1. [`backend/nginx/header.local.conf`](./backend/nginx/header.local.conf)
-2. fallback: [`backend/nginx/header.example.conf`](./backend/nginx/header.example.conf)
+1. [`backend/header.local.conf`](./backend/header.local.conf)
+2. fallback: [`backend/header.example.conf`](./backend/header.example.conf)
 
 Recommended setup:
 
 ```powershell
-Copy-Item backend\nginx\header.example.conf backend\nginx\header.local.conf
+Copy-Item backend\header.example.conf backend\header.local.conf
 ```
 
-Then edit `backend/nginx/header.local.conf` for your real environment:
+Then edit `backend/header.local.conf` for your real environment:
 
 - `server_name`
 - TLS certificate paths
@@ -212,9 +218,9 @@ If you later introduce frontend env vars, document them in this README and the f
 ## NGINX Reference Files
 
 - machine-local template used by the backend generator:
-  [`backend/nginx/header.local.conf`](./backend/nginx/header.local.conf)
+  [`backend/header.local.conf`](./backend/header.local.conf)
 - tracked example template:
-  [`backend/nginx/header.example.conf`](./backend/nginx/header.example.conf)
+  [`backend/header.example.conf`](./backend/header.example.conf)
 - loader:
   [`backend/nginx/reference.py`](./backend/nginx/reference.py)
 - example generated gateway configs:
@@ -227,7 +233,9 @@ If you later introduce frontend env vars, document them in this README and the f
   [`backend/BACKEND_REFERENCE.md`](./backend/BACKEND_REFERENCE.md)
 - frontend reference:
   [`frontend/FRONTEND_DESIGN_STRUCTURE.md`](./frontend/FRONTEND_DESIGN_STRUCTURE.md)
+- FormManager server-to-server API handoff:
+  [`backend/FORMMANAGER_INTEGRATION.md`](./backend/FORMMANAGER_INTEGRATION.md)
 
 ## Summary
 
-This project provides a centralized auth-gateway pattern where NGINX enforces access, Django validates identity and permissions, and the frontend manages the operational UI. The minimum setup is: create `backend/.env`, create `backend/nginx/header.local.conf` from the example template, install backend/frontend dependencies, and point the backend to a ready PostgreSQL schema.
+This project provides a centralized auth-gateway pattern where NGINX enforces access, Django validates identity and permissions, and the frontend manages the operational UI. The minimum setup is: create `backend/.env`, create `backend/header.local.conf` from the example template, install backend/frontend dependencies, and point the backend to a ready PostgreSQL schema.

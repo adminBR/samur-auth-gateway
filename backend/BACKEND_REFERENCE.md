@@ -64,6 +64,8 @@ Source of truth for the gateway flow:
   - loads the machine-local or example header template
 - `backend/infrastructure/managers.py`
   - SSH connection and remote `nginx -t` execution
+- `backend/integrations/`
+  - API-key authenticated FormManager page, user-access, and NGINX publish API
 - `backend/workorders/views.py`
   - work-order endpoint
 - `backend/workorders/services.py`
@@ -204,7 +206,7 @@ Cookie names are configurable:
 - PostgreSQL connection timeout: `5` seconds default in `backend/utils/database.py`
 - SSH connect timeout: `15` seconds in `backend/infrastructure/managers.py`
 - DB proxy request timeout for work orders: `30` seconds in `backend/workorders/services.py`
-- NGINX proxy timeouts in the example header template: `proxy_connect_timeout 300s`, `proxy_send_timeout 300s`, `proxy_read_timeout 300s`, `send_timeout 300s` in `backend/nginx/header.example.conf`
+- NGINX proxy timeouts in the example header template: `proxy_connect_timeout 300s`, `proxy_send_timeout 300s`, `proxy_read_timeout 300s`, `send_timeout 300s` in `backend/header.example.conf`
 - work-order desired completion date offset: `+2` days in `backend/workorders/views.py`
 
 ## Endpoint Catalog
@@ -276,6 +278,18 @@ Current deployment implementation details:
 - a passing `nginx -t` is required before `systemctl restart nginx`
 - a failed test or restart restores the previous file; failed rollback verification preserves the backup path for manual recovery
 
+### FormManager Integration
+
+The server-to-server API is mounted at `/api_gateway/v1/integrations/formmanager/`.
+It uses `FORMMANAGER_API_KEY`, not a portal user JWT. It lists portal users, creates
+and edits services constrained to `/formmanager/<slug>/`, grants or revokes one
+service ID in `usr_info.usr_access`, and can generate and publish the current NGINX
+configuration through the standard rollback-safe deployment pipeline.
+
+Full request and response documentation:
+
+- `backend/FORMMANAGER_INTEGRATION.md`
+
 ### Analytics
 
 | Method | Path | Auth | What it does | Source files |
@@ -325,12 +339,12 @@ They exist because `rest_framework_simplejwt` is registered, but the portal logi
 
 The generated config is assembled from two pieces:
 
-1. Header template loaded from `backend/nginx/header.local.conf`
+1. Header template loaded from `backend/header.local.conf`
 2. Per-service frontend and backend blocks stored in `services_info`
 
 Fallback behavior:
 
-- if `backend/nginx/header.local.conf` does not exist, the backend falls back to `backend/nginx/header.example.conf`
+- if `backend/header.local.conf` does not exist, the backend falls back to `backend/header.example.conf`
 
 Generation logic:
 
@@ -350,7 +364,7 @@ Service authorship model:
 
 Reference examples:
 
-- `backend/nginx/header.example.conf`
+- `backend/header.example.conf`
 - `backend/nginx/reference.py`
 - `extra/api-gateway.conf`
 - `extra/example.conf`
@@ -410,8 +424,8 @@ Observed columns used directly in code include:
 - change admin access analytics rules or response shape: `backend/analytics/views.py`
 - change category parsing or favorites behavior: `backend/services/views.py`
 - change NGINX header template loading: `backend/nginx/reference.py`
-- change the tracked example template: `backend/nginx/header.example.conf`
-- change the machine-local template on one machine: `backend/nginx/header.local.conf`
+- change the tracked example template: `backend/header.example.conf`
+- change the machine-local template on one machine: `backend/header.local.conf`
 - change config concatenation rules: `backend/nginx/nginx_builder.py`
 - change deploy/restore flow: `backend/nginx/builder.py`
 - change SSH execution details: `backend/infrastructure/managers.py`

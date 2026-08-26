@@ -3,9 +3,9 @@ from pathlib import Path
 
 GENERATED_PATHS_PLACEHOLDER = "{{SYSTEM_GENERATED_PATHS}}"
 
-NGINX_DIR = Path(__file__).resolve().parent
-HEADER_TEMPLATE_PATH = NGINX_DIR / "header.local.conf"
-HEADER_TEMPLATE_EXAMPLE_PATH = NGINX_DIR / "header.example.conf"
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+HEADER_TEMPLATE_PATH = BACKEND_DIR / "header.local.conf"
+HEADER_TEMPLATE_EXAMPLE_PATH = BACKEND_DIR / "header.example.conf"
 
 
 def _read_template(path: Path) -> str:

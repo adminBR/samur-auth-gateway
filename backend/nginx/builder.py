@@ -165,6 +165,63 @@ def _perform_deployment(
         conn.close()
 
 
+def generate_current_nginx_config(
+    header: Optional[str] = None,
+) -> Tuple[str, int]:
+    """Build the current NGINX config from all enabled database services."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT si.srv_id, si.rt_frontend_block, si.rt_backend_block,
+                   si.rt_enabled, si.srv_name
+            FROM services_info si
+            WHERE si.rt_enabled = true
+            ORDER BY si.srv_id
+            """
+        )
+        services_data = [
+            {
+                "srv_id": row[0],
+                "rt_frontend_block": row[1],
+                "rt_backend_block": row[2],
+                "rt_enabled": row[3],
+                "srv_name": row[4],
+            }
+            for row in cur.fetchall()
+        ]
+        nginx_config = NginxConfigBuilder.build_nginx_config(
+            services_data=services_data,
+            header=header if header is not None else load_header_template(),
+        )
+        return nginx_config, len(services_data)
+    except psycopg2.Error as exc:
+        logger.error("NGINX config query failed: %s", exc, exc_info=True)
+        raise APIException(f"Query execution failed: {exc}") from exc
+    finally:
+        cur.close()
+        conn.close()
+
+
+def publish_current_nginx_config() -> Tuple[Dict[str, object], int]:
+    """Generate, deploy, validate, and restart the current NGINX config."""
+    config_error = _ssh_configuration_error()
+    if config_error:
+        return (
+            {
+                "message": config_error,
+                "status_label": "failed",
+            },
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    config_text, services_count = generate_current_nginx_config()
+    result, response_status = _perform_deployment(config_text)
+    result["services_count"] = services_count
+    return result, response_status
+
+
 def _latest_working_config() -> Tuple[int, str]:
     conn = get_db_connection()
     cur = conn.cursor()
@@ -246,46 +303,16 @@ class NginxConfigGeneratorView(APIView):
         if auth_error:
             return auth_error
 
-        conn = get_db_connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT si.srv_id, si.rt_frontend_block, si.rt_backend_block,
-                       si.rt_enabled, si.srv_name
-                FROM services_info si
-                WHERE si.rt_enabled = true
-                ORDER BY si.srv_id
-                """
-            )
-            services_data = [
-                {
-                    "srv_id": row[0],
-                    "rt_frontend_block": row[1],
-                    "rt_backend_block": row[2],
-                    "rt_enabled": row[3],
-                    "srv_name": row[4],
-                }
-                for row in cur.fetchall()
-            ]
-            header = request.query_params.get("header") or load_header_template()
-            nginx_config = NginxConfigBuilder.build_nginx_config(
-                services_data=services_data,
-                header=header,
-            )
-            return Response(
-                {
-                    "message": "Nginx configuration generated successfully",
-                    "config": nginx_config,
-                    "services_count": len(services_data),
-                }
-            )
-        except psycopg2.Error as exc:
-            logger.error("NGINX config query failed: %s", exc, exc_info=True)
-            raise APIException(f"Query execution failed: {exc}")
-        finally:
-            cur.close()
-            conn.close()
+        nginx_config, services_count = generate_current_nginx_config(
+            header=request.query_params.get("header") or None,
+        )
+        return Response(
+            {
+                "message": "Nginx configuration generated successfully",
+                "config": nginx_config,
+                "services_count": services_count,
+            }
+        )
 
 
 class NginxConfigDeployView(APIView):
