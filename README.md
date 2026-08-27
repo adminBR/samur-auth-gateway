@@ -80,7 +80,7 @@ NGINX_SSH_USER=deployer
 NGINX_SSH_PASSWORD=change-me
 NGINX_SSH_KEY_PATH=
 NGINX_REMOTE_CONFIG_PATH=/etc/nginx/sites-available/api-gateway.conf
-NGINX_RESTART_COMMAND=systemctl restart nginx
+NGINX_RESTART_COMMAND=systemctl reload nginx
 ```
 
 Notes:

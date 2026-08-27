@@ -58,7 +58,7 @@ class ScriptedSshManager(SshManager):
         self.sudo_commands.append(command)
         if command.startswith("if [ -e"):
             return "exists", "", 0
-        if command == "systemctl restart nginx":
+        if command == "systemctl reload nginx":
             exit_code = self.restart_codes.pop(0)
             return "", "restart failed" if exit_code else "", exit_code
         return "", "", 0
@@ -76,7 +76,7 @@ class ScriptedSshManager(SshManager):
 class SshManagerDeploymentTests(SimpleTestCase):
     remote_path = "/etc/nginx/sites-available/api-gateway.conf"
 
-    def test_successful_deployment_tests_and_restarts_nginx(self):
+    def test_successful_deployment_tests_and_reloads_nginx(self):
         manager = ScriptedSshManager(test_results=[True], restart_codes=[0])
 
         result = manager.deploy_nginx_config("server {}", self.remote_path)
@@ -85,7 +85,7 @@ class SshManagerDeploymentTests(SimpleTestCase):
         self.assertTrue(result["test_status"])
         self.assertTrue(result["restart_status"])
         self.assertFalse(result["rolled_back"])
-        self.assertIn("systemctl restart nginx", manager.sudo_commands)
+        self.assertIn("systemctl reload nginx", manager.sudo_commands)
         self.assertEqual(manager.client.sftp.remote_file.content, "server {}")
 
     def test_failed_nginx_test_restores_previous_file_without_restart(self):
@@ -96,12 +96,12 @@ class SshManagerDeploymentTests(SimpleTestCase):
         self.assertFalse(result["deployed"])
         self.assertTrue(result["rolled_back"])
         self.assertTrue(result["rollback_status"])
-        self.assertNotIn("systemctl restart nginx", manager.sudo_commands)
+        self.assertNotIn("systemctl reload nginx", manager.sudo_commands)
         self.assertTrue(
             any(command.startswith("cp -a --") for command in manager.sudo_commands)
         )
 
-    def test_failed_restart_restores_and_restarts_previous_config(self):
+    def test_failed_reload_restores_and_reloads_previous_config(self):
         manager = ScriptedSshManager(
             test_results=[True, True],
             restart_codes=[1, 0],
@@ -115,6 +115,6 @@ class SshManagerDeploymentTests(SimpleTestCase):
         self.assertTrue(result["rolled_back"])
         self.assertTrue(result["rollback_status"])
         self.assertEqual(
-            manager.sudo_commands.count("systemctl restart nginx"),
+            manager.sudo_commands.count("systemctl reload nginx"),
             2,
         )

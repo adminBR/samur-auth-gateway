@@ -1,3 +1,4 @@
+import logging
 import shlex
 import uuid
 from typing import Callable, Dict, List, Optional, Tuple
@@ -7,6 +8,7 @@ from rest_framework.exceptions import APIException
 
 
 ProgressCallback = Optional[Callable[[Dict[str, object]], None]]
+logger = logging.getLogger(__name__)
 
 
 class SshManager:
@@ -105,7 +107,7 @@ class SshManager:
         config_text: str,
         remote_path: str,
         *,
-        restart_command: str = "systemctl restart nginx",
+        restart_command: str = "systemctl reload nginx",
         on_progress: ProgressCallback = None,
     ) -> Dict[str, object]:
         deployment_id = uuid.uuid4().hex
@@ -130,6 +132,13 @@ class SshManager:
             else:
                 steps.append(step)
                 emitted_step = dict(step)
+            logger.info(
+                "NGINX deployment step=%s status=%s label=%s%s",
+                step_id,
+                step_status,
+                label,
+                f" output={output[:500]}" if output else "",
+            )
             if on_progress:
                 on_progress(emitted_step)
 
@@ -278,7 +287,7 @@ class SshManager:
                 test_result = self._run_nginx_test(client)
             except Exception as exc:
                 report("test", "Validando com nginx -t", "failed", str(exc))
-                report("restart", "Reiniciando NGINX", "skipped", "Teste não concluído.")
+                report("restart", "Recarregando NGINX", "skipped", "Teste não concluído.")
                 rollback_passed = rollback(restart_previous=False)
                 return build_result(
                     deployed=False,
@@ -293,7 +302,7 @@ class SshManager:
                 str(test_result["output"]),
             )
             if not test_passed:
-                report("restart", "Reiniciando NGINX", "skipped", "Teste de configuração reprovado.")
+                report("restart", "Recarregando NGINX", "skipped", "Teste de configuração reprovado.")
                 rollback_passed = rollback(restart_previous=False)
                 return build_result(
                     deployed=False,
@@ -302,14 +311,14 @@ class SshManager:
                     rollback_status=rollback_passed,
                 )
 
-            report("restart", "Reiniciando NGINX", "running")
+            report("restart", "Recarregando NGINX", "running")
             try:
                 out, err, restart_code = self._run_sudo_command(client, restart_command)
             except Exception as exc:
                 out, err, restart_code = "", str(exc), 1
             restart_output = self._combined_output(out, err)
             if restart_code != 0:
-                report("restart", "Reiniciando NGINX", "failed", restart_output)
+                report("restart", "Recarregando NGINX", "failed", restart_output)
                 rollback_passed = rollback(restart_previous=True)
                 return build_result(
                     deployed=False,
@@ -319,7 +328,7 @@ class SshManager:
                     rollback_status=rollback_passed,
                 )
 
-            report("restart", "Reiniciando NGINX", "passed", restart_output or "NGINX reiniciado.")
+            report("restart", "Recarregando NGINX", "passed", restart_output or "NGINX recarregado.")
             report("rollback", "Restaurando configuração anterior", "skipped", "Publicação aprovada.")
             return build_result(deployed=True, syntax_status=True, restart_status=True)
         finally:

@@ -163,8 +163,8 @@ Content-Type: application/json
 ```
 
 This generates the config from the database, uploads it over SSH, runs `nginx -t`,
-and restarts NGINX only when validation succeeds. A failed validation or restart
-uses the existing automatic rollback.
+and gracefully reloads NGINX only when validation succeeds. A failed validation
+or reload uses the existing automatic rollback.
 
 HTTP `200` indicates success:
 

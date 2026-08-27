@@ -25,6 +25,8 @@ interface NginxConfigModalProps {
   onClose: () => void;
   config: string | null;
   isLoading: boolean;
+  loadError: string | null;
+  onRetry: () => void;
 }
 
 const INITIAL_STEPS: NginxProgressStep[] = [
@@ -33,7 +35,7 @@ const INITIAL_STEPS: NginxProgressStep[] = [
   { id: "backup", label: "Preservando versão atual", status: "pending" },
   { id: "install", label: "Instalando arquivo candidato", status: "pending" },
   { id: "test", label: "Validando com nginx -t", status: "pending" },
-  { id: "restart", label: "Reiniciando NGINX", status: "pending" },
+  { id: "restart", label: "Recarregando NGINX", status: "pending" },
   { id: "rollback", label: "Restauração automática", status: "pending" },
 ];
 
@@ -45,6 +47,8 @@ export default function NginxConfigModal({
   onClose,
   config,
   isLoading,
+  loadError,
+  onRetry,
 }: NginxConfigModalProps) {
   const [copied, setCopied] = useState(false);
   const [operation, setOperation] = useState<"publish" | "restore" | null>(null);
@@ -106,7 +110,17 @@ export default function NginxConfigModal({
   const handleDeploy = async () => {
     if (!config || isBusy) return;
     setOperation("publish");
-    setSteps(INITIAL_STEPS);
+    setSteps(
+      INITIAL_STEPS.map((step) =>
+        step.id === "connect"
+          ? {
+              ...step,
+              status: "running",
+              output: "Solicitando publicação ao servidor...",
+            }
+          : step,
+      ),
+    );
     setResult(null);
     try {
       const deploymentResult = await deployNginxConfigStream(config, updateStep);
@@ -122,7 +136,17 @@ export default function NginxConfigModal({
   const handleRestore = async () => {
     if (isBusy) return;
     setOperation("restore");
-    setSteps(INITIAL_STEPS);
+    setSteps(
+      INITIAL_STEPS.map((step) =>
+        step.id === "connect"
+          ? {
+              ...step,
+              status: "running",
+              output: "Solicitando restauração ao servidor...",
+            }
+          : step,
+      ),
+    );
     setResult(null);
     try {
       const restoreResult = await restoreNginxConfigStream(updateStep);
@@ -181,6 +205,24 @@ export default function NginxConfigModal({
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-gray-50">
             <LoaderCircle className="h-8 w-8 animate-spin text-[#2e7675]" />
             <p className="text-sm text-gray-500">Gerando configuração...</p>
+          </div>
+        ) : loadError ? (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-gray-50 px-6 text-center">
+            <XCircle className="h-8 w-8 text-red-600" />
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                Não foi possível carregar a configuração
+              </p>
+              <p className="mt-1 max-w-xl text-sm text-gray-500">{loadError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Tentar novamente
+            </button>
           </div>
         ) : config ? (
           <main className="nginx-workspace-grid min-h-0 flex-1 bg-white">

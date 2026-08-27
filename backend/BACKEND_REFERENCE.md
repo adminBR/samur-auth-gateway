@@ -264,20 +264,20 @@ Important service fields:
 | Method | Path | Auth | What it does | Source files |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api_gateway/v1/nginx/config/` | admin | Reads service blocks from the database, merges them into the header template, and returns the generated config text. Optional query param: `header` for override. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/nginx/nginx_builder.py`, `backend/nginx/reference.py` |
-| `POST` | `/api_gateway/v1/nginx/publish/` | admin | Generates and transactionally publishes the current database config. Returns `success: true` only after validation and restart succeed. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
-| `POST` | `/api_gateway/v1/nginx/deploy/` | admin | Saves a pending version, backs up the remote config, publishes over SSH, runs `nginx -t`, restarts NGINX on success, and rolls back automatically on failure. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
+| `POST` | `/api_gateway/v1/nginx/publish/` | admin | Generates and transactionally publishes the current database config. Returns `success: true` only after validation and graceful reload succeed. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
+| `POST` | `/api_gateway/v1/nginx/deploy/` | admin | Saves a pending version, backs up the remote config, publishes over SSH, runs `nginx -t`, gracefully reloads NGINX on success, and rolls back automatically on failure. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 | `POST` | `/api_gateway/v1/nginx/deploy/stream/` | admin | Performs the same deployment and streams NDJSON progress events for the admin interface. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
-| `POST` | `/api_gateway/v1/nginx/restore/` | admin | Restores the latest successful config from `services_conf_log`, validates it, and restarts NGINX. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
+| `POST` | `/api_gateway/v1/nginx/restore/` | admin | Restores the latest successful config from `services_conf_log`, validates it, and gracefully reloads NGINX. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 | `POST` | `/api_gateway/v1/nginx/restore/stream/` | admin | Performs the same restore and streams NDJSON progress events for the admin interface. | `backend/nginx/urls.py`, `backend/nginx/builder.py`, `backend/infrastructure/managers.py` |
 
 Current deployment implementation details:
 
 - remote config path: `/etc/nginx/sites-available/api-gateway.conf`
 - SSH connection code: `backend/infrastructure/managers.py`
-- SSH host, port, user, password/key, remote path, and restart command come from `backend/.env`
+- SSH host, port, user, password/key, remote path, and reload command come from `backend/.env`
 - the candidate is uploaded to `/tmp/nginx-config-<uuid>.conf`, while the current remote file is copied to a unique backup
-- a passing `nginx -t` is required before `systemctl restart nginx`
-- a failed test or restart restores the previous file; failed rollback verification preserves the backup path for manual recovery
+- a passing `nginx -t` is required before `systemctl reload nginx`; the graceful reload keeps the publish request connected
+- a failed test or reload restores the previous file; failed rollback verification preserves the backup path for manual recovery
 
 ### Analytics
 

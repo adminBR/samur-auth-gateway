@@ -33,6 +33,22 @@ import {
 } from "../features/dashboard";
 import { NginxConfigModal, ServiceModal } from "../features/admin";
 
+const getApiErrorMessage = (error: unknown) => {
+  if (typeof error === "object" && error !== null) {
+    const requestError = error as {
+      message?: string;
+      response?: { data?: { detail?: string; message?: string } };
+    };
+    return (
+      requestError.response?.data?.detail ??
+      requestError.response?.data?.message ??
+      requestError.message ??
+      "Não foi possível carregar a configuração NGINX."
+    );
+  }
+  return "Não foi possível carregar a configuração NGINX.";
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
 
@@ -45,6 +61,7 @@ export default function DashboardPage() {
   const [nginxConfigModal, setNginxConfigModal] = useState<boolean>(false);
   const [nginxConfig, setNginxConfig] = useState<string | null>(null);
   const [isNginxLoading, setIsNginxLoading] = useState<boolean>(false);
+  const [nginxConfigError, setNginxConfigError] = useState<string | null>(null);
   const [currentService, setCurrentService] =
     useState<EditableIndicatorService>(buildDefaultIndicator());
   const [predictedServiceId, setPredictedServiceId] = useState<number | null>(
@@ -425,13 +442,16 @@ export default function DashboardPage() {
   }, []);
 
   const handleViewNginxConfig = async () => {
+    setNginxConfigModal(true);
+    setNginxConfig(null);
+    setNginxConfigError(null);
+    setIsNginxLoading(true);
     try {
-      setIsNginxLoading(true);
       const data = await getNginxConfig();
       setNginxConfig(data.config);
-      setNginxConfigModal(true);
     } catch (error) {
       console.error("Error fetching nginx config:", error);
+      setNginxConfigError(getApiErrorMessage(error));
     } finally {
       setIsNginxLoading(false);
     }
@@ -539,6 +559,8 @@ export default function DashboardPage() {
         onClose={() => setNginxConfigModal(false)}
         config={nginxConfig}
         isLoading={isNginxLoading}
+        loadError={nginxConfigError}
+        onRetry={handleViewNginxConfig}
       />
     </div>
   );

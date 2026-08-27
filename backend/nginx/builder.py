@@ -32,7 +32,7 @@ REMOTE_CONFIG_PATH = env(
     "NGINX_REMOTE_CONFIG_PATH",
     "/etc/nginx/sites-available/api-gateway.conf",
 ) or "/etc/nginx/sites-available/api-gateway.conf"
-RESTART_COMMAND = env("NGINX_RESTART_COMMAND", "systemctl restart nginx") or "systemctl restart nginx"
+RESTART_COMMAND = env("NGINX_RESTART_COMMAND", "systemctl reload nginx") or "systemctl reload nginx"
 
 ProgressCallback = Optional[Callable[[Dict[str, object]], None]]
 
@@ -120,13 +120,13 @@ def _perform_deployment(
         succeeded = bool(deployment.get("deployed"))
         if restore:
             message = (
-                "Configuração anterior restaurada e NGINX reiniciado."
+                "Configuração anterior restaurada e NGINX recarregado."
                 if succeeded
                 else "Não foi possível restaurar a configuração anterior."
             )
         else:
             message = (
-                "Configuração publicada e NGINX reiniciado."
+                "Configuração publicada e NGINX recarregado."
                 if succeeded
                 else (
                     "Teste reprovado; a configuração anterior foi restaurada."
@@ -205,7 +205,7 @@ def generate_current_nginx_config(
 
 
 def publish_current_nginx_config() -> Tuple[Dict[str, object], int]:
-    """Generate, deploy, validate, and restart the current NGINX config."""
+    """Generate, deploy, validate, and reload the current NGINX config."""
     config_error = _ssh_configuration_error()
     if config_error:
         return (
