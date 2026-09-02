@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import logging
 
 import requests
@@ -57,6 +59,11 @@ def _extract_row_value(row, *keys: str, index: int = 0):
         return row[index] if len(row) > index else None
 
     return None
+
+
+def _compute_tasy_password_hash(password: str, salt: str) -> str:
+    value = f"{str(password).upper()}{salt}".encode("utf-8")
+    return hashlib.sha256(value).hexdigest().upper()
 
 
 def _run_tasy_query(query: str):
@@ -158,27 +165,11 @@ def authenticate_tasy_user_with_identity(username: str, password: str):
         user_credentials["normalized_username"],
     )
 
-    escaped_password = _escape_oracle_literal(normalized_password)
-    escaped_salt = _escape_oracle_literal(str(salt))
-    query_hash = f"""
-        SELECT STANDARD_HASH(
-            UPPER('{escaped_password}') || '{escaped_salt}',
-            'SHA256'
-        ) AS computed_hash
-        FROM dual
-    """
-
-    hash_row = _run_tasy_query(query_hash)
-    if not hash_row:
-        raise TasyAuthError("Failed to compute the Tasy password hash.")
-
-    computed_hash = _extract_row_value(hash_row, "computed_hash", index=0)
-    if not computed_hash:
-        raise TasyAuthError(
-            "Missing computed hash in the Tasy authentication response."
-        )
-
-    is_valid = str(computed_hash).strip().upper() == str(stored_hash).strip().upper()
+    computed_hash = _compute_tasy_password_hash(normalized_password, str(salt))
+    is_valid = hmac.compare_digest(
+        computed_hash,
+        str(stored_hash).strip().upper(),
+    )
     return is_valid, {
         "canonical_username": canonical_username,
         "lookup_usernames": user_credentials["lookup_usernames"],

@@ -288,11 +288,11 @@ class UserLogin(APIView):
         except TasyAuthConfigurationError as e:
             conn.rollback()
             logger.error("Tasy authentication is not configured for '%s': %s", user_name, str(e))
-            raise APIException({"detail": str(e)})
+            return Response({"detail": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except TasyAuthError as e:
             conn.rollback()
             logger.error("Tasy authentication failed unexpectedly for '%s': %s", user_name, str(e), exc_info=True)
-            raise APIException({"detail": str(e)})
+            return Response({"detail": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         finally:
             cur.close()
             conn.close()

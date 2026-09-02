@@ -5,7 +5,11 @@ from django.test import SimpleTestCase
 from rest_framework.test import APIClient, APIRequestFactory
 
 from users.auth import JWTCustomAuth
-from users.tasy_auth import authenticate_tasy_user, authenticate_tasy_user_with_identity
+from users.tasy_auth import (
+    _compute_tasy_password_hash,
+    authenticate_tasy_user,
+    authenticate_tasy_user_with_identity,
+)
 from utils.jwt import (
     TOKEN_TYPE_ACCESS,
     create_access_token,
@@ -448,15 +452,12 @@ class TasyAuthTests(SimpleTestCase):
         self,
         mock_run_tasy_query,
     ):
-        mock_run_tasy_query.side_effect = [
-            {
-                "ds_login": "MiXeD.User",
-                "nm_usuario": "Mixed User",
-                "ds_senha": "HASH123",
-                "ds_tec": "salt",
-            },
-            {"computed_hash": "HASH123"},
-        ]
+        mock_run_tasy_query.return_value = {
+            "ds_login": "MiXeD.User",
+            "nm_usuario": "Mixed User",
+            "ds_senha": _compute_tasy_password_hash("abc123", "salt"),
+            "ds_tec": "salt",
+        }
 
         is_valid = authenticate_tasy_user("mixed.user", "abc123")
 
@@ -465,21 +466,19 @@ class TasyAuthTests(SimpleTestCase):
         self.assertIn("UPPER(TRIM(ds_login))", user_lookup_query)
         self.assertIn("UPPER(TRIM(nm_usuario))", user_lookup_query)
         self.assertIn("= 'MIXED.USER'", user_lookup_query)
+        self.assertEqual(mock_run_tasy_query.call_count, 1)
 
     @patch("users.tasy_auth._run_tasy_query")
     def test_authenticate_tasy_user_with_identity_returns_canonical_and_alias_logins(
         self,
         mock_run_tasy_query,
     ):
-        mock_run_tasy_query.side_effect = [
-            {
-                "ds_login": "login.user",
-                "nm_usuario": "Display User",
-                "ds_senha": "HASH123",
-                "ds_tec": "salt",
-            },
-            {"computed_hash": "HASH123"},
-        ]
+        mock_run_tasy_query.return_value = {
+            "ds_login": "login.user",
+            "nm_usuario": "Display User",
+            "ds_senha": _compute_tasy_password_hash("abc123", "salt"),
+            "ds_tec": "salt",
+        }
 
         is_valid, identity = authenticate_tasy_user_with_identity(
             "display user", "abc123"
@@ -493,3 +492,21 @@ class TasyAuthTests(SimpleTestCase):
                 "lookup_usernames": ["LOGIN.USER", "DISPLAY USER"],
             },
         )
+
+    @patch("users.tasy_auth._run_tasy_query")
+    def test_authenticate_tasy_user_hashes_punctuation_heavy_salt_locally(
+        self,
+        mock_run_tasy_query,
+    ):
+        salt = "ab<!cd`:e<@&*12"
+        mock_run_tasy_query.return_value = {
+            "ds_login": "Roselly.mascarenhas",
+            "nm_usuario": "Roselly Mascare",
+            "ds_senha": _compute_tasy_password_hash("Gestao16", salt),
+            "ds_tec": salt,
+        }
+
+        is_valid = authenticate_tasy_user("Roselly.mascarenhas", "Gestao16")
+
+        self.assertTrue(is_valid)
+        self.assertEqual(mock_run_tasy_query.call_count, 1)
