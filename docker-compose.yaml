@@ -1,5 +1,6 @@
 services:
   backend:
+    restart: unless-stopped
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -13,6 +14,7 @@ services:
       PYTHONUNBUFFERED: "1"
 
   frontend:
+    restart: unless-stopped
     build:
       context: ./frontend
       dockerfile: Dockerfile

@@ -186,15 +186,18 @@ Default local ports in this repo:
 Run both services:
 
 ```powershell
-docker compose up --build
+docker compose up -d --build
 ```
 
 Or run one side only:
 
 ```powershell
-docker compose -f docker-compose.backend.yaml up --build
-docker compose -f docker-compose.frontend.yaml up --build
+docker compose -f docker-compose.backend.yaml up -d --build
+docker compose -f docker-compose.frontend.yaml up -d --build
 ```
+
+All Compose services use `restart: unless-stopped`, so containers created by
+these commands start again automatically when Docker starts after a VM reboot.
 
 Current compose files:
 
