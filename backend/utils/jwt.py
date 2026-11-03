@@ -86,7 +86,13 @@ def _build_payload(
     return payload
 
 
-def create_access_token(user_id, username, lifetime_value=None) -> str:
+def create_access_token(
+    user_id,
+    username,
+    lifetime_value=None,
+    *,
+    is_admin: bool = False,
+) -> str:
     normalized_lifetime = normalize_access_lifetime(lifetime_value)
     payload = _build_payload(
         user_id,
@@ -94,6 +100,7 @@ def create_access_token(user_id, username, lifetime_value=None) -> str:
         TOKEN_TYPE_ACCESS,
         normalized_lifetime,
     )
+    payload["is_admin"] = bool(is_admin)
     return jwt.encode(
         payload,
         settings.SECRET_KEY,

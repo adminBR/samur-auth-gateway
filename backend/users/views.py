@@ -303,7 +303,12 @@ class UserLogin(APIView):
 
         jwt_expiration = normalize_jwt_expiration(user["jwt_expiration"])
         authenticated_user_name = user["username"]
-        access_token = create_access_token(user["id"], authenticated_user_name, jwt_expiration)
+        access_token = create_access_token(
+            user["id"],
+            authenticated_user_name,
+            jwt_expiration,
+            is_admin=user["is_admin"],
+        )
         refresh_token = create_refresh_token(user["id"], authenticated_user_name)
 
         logger.info(
@@ -364,37 +369,50 @@ class ValidateToken(APIView):
             logger.debug(f"Token decoded successfully for user_id: {payload.get('user_id')}")
             user_id = payload["user_id"]
 
-            if service_id:
-                conn = get_db_connection()
-                cur = conn.cursor()
-                try:
-                    cur.execute("SELECT usr_access FROM usr_info WHERE usr_id = %s", (user_id,))
-                    result = cur.fetchone()
-                    if not result:
-                        logger.warning(f"Token validation failed: User not found - user_id: {user_id}")
-                        return Response({"detail": "User not found"}, status=status.HTTP_401_UNAUTHORIZED)
+            conn = get_db_connection()
+            cur = conn.cursor()
+            try:
+                cur.execute(
+                    "SELECT usr_admin, usr_access FROM usr_info WHERE usr_id = %s",
+                    (user_id,),
+                )
+                result = cur.fetchone()
+                if not result:
+                    logger.warning(f"Token validation failed: User not found - user_id: {user_id}")
+                    return Response({"detail": "User not found"}, status=status.HTTP_401_UNAUTHORIZED)
 
-                    allowed_services = result[0].split(",")
-                    if service_id not in allowed_services:
-                        logger.warning(f"Token validation failed: Access denied - user_id: {user_id}, service_id: {service_id}")
-                        return Response({"detail": "Access denied to this service"},
-                                        status=status.HTTP_403_FORBIDDEN)
-                    logger.debug(f"Token validation successful for user_id: {user_id}, service_id: {service_id}")
-                except psycopg2.Error as e:
-                    logger.error(f"Database error during token validation: {str(e)}", exc_info=True)
-                    raise APIException({"detail":'Database query error!'})
-                finally:
-                    cur.close()
-                    conn.close()
+                is_admin = bool(result[0])
+                allowed_services = str(result[1] or "").split(",")
+                if service_id and not is_admin and service_id not in allowed_services:
+                    logger.warning(f"Token validation failed: Access denied - user_id: {user_id}, service_id: {service_id}")
+                    return Response({"detail": "Access denied to this service"},
+                                    status=status.HTTP_403_FORBIDDEN)
+                logger.debug(
+                    "Token validation successful for user_id=%s, service_id=%s, is_admin=%s",
+                    user_id,
+                    service_id,
+                    is_admin,
+                )
+            except psycopg2.Error as e:
+                logger.error(f"Database error during token validation: {str(e)}", exc_info=True)
+                raise APIException({"detail":'Database query error!'})
+            finally:
+                cur.close()
+                conn.close()
 
             logger.info(f"Token validated successfully for user_id: {user_id}")
             response = Response(
-                {"user_id": payload["user_id"], "user_name": payload["user_name"]},
+                {
+                    "user_id": payload["user_id"],
+                    "user_name": payload["user_name"],
+                    "is_admin": is_admin,
+                },
                 status=status.HTTP_200_OK
             )
             # Add custom headers for Nginx to consume
             response["X-User-Id"] = payload["user_id"]
             response["X-User-Name"] = payload.get("user_name", "unknown")
+            response["X-User-Admin"] = "true" if is_admin else "false"
             return response
         except jwt.ExpiredSignatureError:
             logger.warning("Token validation failed: Token signature expired")
@@ -443,6 +461,7 @@ class RefreshToken(APIView):
                 user_id,
                 user_context["user_name"],
                 user_context["jwt_expiration"],
+                is_admin=user_context["is_admin"],
             )
 
             logger.info(f"Token refreshed successfully for user_id: {payload.get('user_id')}")

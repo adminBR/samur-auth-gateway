@@ -10,6 +10,7 @@ import {
   Check,
   LoaderCircle,
   Search,
+  ShieldCheck,
   Trash2,
   UserCog,
   UserPlus,
@@ -118,8 +119,12 @@ function sortUsers(users: User[], sortKey: SortKey, direction: SortDirection) {
         return compareBoolean(Boolean(left.is_tasy), Boolean(right.is_tasy));
       case "access_count":
         return (
-          parseAccessIds(left.access).length -
-          parseAccessIds(right.access).length
+          (left.is_admin
+            ? Number.MAX_SAFE_INTEGER
+            : parseAccessIds(left.access).length) -
+          (right.is_admin
+            ? Number.MAX_SAFE_INTEGER
+            : parseAccessIds(right.access).length)
         );
       case "jwt_expiration":
         return compareJwtExpiration(left.jwt_expiration, right.jwt_expiration);
@@ -355,42 +360,58 @@ function UserFormModal({
             </div>
 
             <section className="flex h-[420px] flex-col sm:h-[500px] lg:h-[560px]">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-[#355754]">
-                    Indicadores liberados
-                  </h3>
-                  <div className="relative mt-3 max-w-md">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <Search className="h-4 w-4 text-[#7f9692]" />
-                    </div>
-                    <input
-                      type="text"
-                      value={serviceSearchTerm}
-                      onChange={(event) =>
-                        setServiceSearchTerm(event.target.value)
-                      }
-                      placeholder="Buscar indicador pelo nome"
-                      className="h-10 w-full rounded-[12px] border border-[#d7e4de] bg-white pl-10 pr-3 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40"
-                    />
+              {isAdmin ? (
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-8 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#eaf5f1] text-[#2e7675]">
+                    <ShieldCheck className="h-7 w-7" />
                   </div>
+                  <h3 className="mt-4 text-base font-semibold text-[#203735]">
+                    Acesso a todos os indicadores
+                  </h3>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-[#68817d]">
+                    Contas administradoras acessam automaticamente todos os
+                    indicadores atuais e futuros. Não é necessário selecionar
+                    permissões individuais.
+                  </p>
                 </div>
-                <div className="mt-0.5 rounded-full border border-[#d6e4de] bg-[#f8fcfa] px-3 py-1 text-[11px] font-semibold text-[#476361]">
-                  {selectedServiceIds.size} selecionado(s)
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-[#355754]">
+                        Indicadores liberados
+                      </h3>
+                      <div className="relative mt-3 max-w-md">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <Search className="h-4 w-4 text-[#7f9692]" />
+                        </div>
+                        <input
+                          type="text"
+                          value={serviceSearchTerm}
+                          onChange={(event) =>
+                            setServiceSearchTerm(event.target.value)
+                          }
+                          placeholder="Buscar indicador pelo nome"
+                          className="h-10 w-full rounded-[12px] border border-[#d7e4de] bg-white pl-10 pr-3 text-[13px] font-medium text-[#203735] outline-none transition-colors focus:border-[#2e7675]/40"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-0.5 rounded-full border border-[#d6e4de] bg-[#f8fcfa] px-3 py-1 text-[11px] font-semibold text-[#476361]">
+                      {selectedServiceIds.size} selecionado(s)
+                    </div>
+                  </div>
 
-              <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                {!services.length ? (
-                  <p className="py-4 text-sm text-[#5b7672]">
-                    Nenhum indicador disponível para vinculação.
-                  </p>
-                ) : !visibleServices.length ? (
-                  <p className="py-4 text-sm text-[#5b7672]">
-                    Nenhum indicador encontrado para esta busca.
-                  </p>
-                ) : (
-                  <table className="min-w-full border-collapse">
+                  <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+                    {!services.length ? (
+                      <p className="py-4 text-sm text-[#5b7672]">
+                        Nenhum indicador disponível para vinculação.
+                      </p>
+                    ) : !visibleServices.length ? (
+                      <p className="py-4 text-sm text-[#5b7672]">
+                        Nenhum indicador encontrado para esta busca.
+                      </p>
+                    ) : (
+                      <table className="min-w-full border-collapse">
                     <thead className="sticky top-0 z-10 bg-white">
                       <tr className="border-b border-[#dce8e3]">
                           <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-[#58726f]">
@@ -430,9 +451,11 @@ function UserFormModal({
                           </tr>
                         ))}
                       </tbody>
-                    </table>
-                )}
-              </div>
+                      </table>
+                    )}
+                  </div>
+                </>
+              )}
             </section>
           </div>
 
@@ -582,13 +605,17 @@ export default function UserManager() {
       return false;
     }
 
-    if (accessFilter === "none" && userAccessIds.length > 0) {
+    if (
+      accessFilter === "none" &&
+      (user.is_admin || userAccessIds.length > 0)
+    ) {
       return false;
     }
 
     if (
       accessFilter !== "all" &&
       accessFilter !== "none" &&
+      !user.is_admin &&
       !userAccessIds.includes(Number(accessFilter))
     ) {
       return false;
@@ -849,6 +876,15 @@ export default function UserManager() {
   };
 
   const renderAccessBadges = (user: User) => {
+    if (user.is_admin) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full border border-[#bcd8ce] bg-[#eaf5f1] px-2.5 py-1 text-[11px] font-semibold text-[#2e7675]">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Todos os indicadores
+        </span>
+      );
+    }
+
     const accessIds = parseAccessIds(user.access);
 
     if (!accessIds.length) {
@@ -1107,7 +1143,9 @@ export default function UserManager() {
                         <td className="px-5 py-4 align-top">
                           <div className="min-w-[240px] space-y-2">
                             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#7a918d]">
-                              {parseAccessIds(user.access).length} indicador(es)
+                              {user.is_admin
+                                ? "Acesso total"
+                                : `${parseAccessIds(user.access).length} indicador(es)`}
                             </p>
                             {renderAccessBadges(user)}
                           </div>

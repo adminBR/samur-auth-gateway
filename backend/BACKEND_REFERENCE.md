@@ -23,7 +23,7 @@ The main URL root is defined in `backend/serviceauth/urls.py`.
 2. The frontend logs in through `POST /api_gateway/v1/users/login/`.
 3. The backend creates a custom access token and refresh token, returns them in JSON, and also sets them as cookies.
 4. When the user opens a protected page behind the gateway, NGINX runs an internal subrequest to `GET /api_gateway/v1/users/validate` and forwards the browser cookies plus `X-Service-ID`.
-5. The backend validates the access token and checks whether the user has that service ID in `usr_info.usr_access`.
+5. The backend validates the access token. Administrators are allowed automatically; normal users must have the service ID in `usr_info.usr_access`.
 6. If validation passes, NGINX proxies the request to the target page or API. If it fails, NGINX redirects the browser to `/login?next=...` or returns JSON errors depending on the location block.
 
 Source of truth for the gateway flow:
@@ -216,7 +216,7 @@ Cookie names are configurable:
 | `POST` | `/api_gateway/v1/users/login/` | public | Validates credentials, returns `access_token`, `refresh_token`, `isAdmin`, `jwt_expiration`, and sets both cookies. Local users are checked against PostgreSQL directly. When `usr_tasy` is true, or the user does not exist locally, the backend can validate through Tasy and provision a local shadow row. | `backend/users/urls.py`, `backend/users/views.py`, `backend/users/tasy_auth.py`, `backend/utils/jwt.py` |
 | `GET` | `/api_gateway/v1/users/me/` | access token | Returns `user_id`, `user_name`, `is_admin`. Prefers cookie auth. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py` |
 | `GET` | `/api_gateway/v1/users/logout` | optional | Clears auth cookies and returns `Logged out`. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py` |
-| `GET` | `/api_gateway/v1/users/validate` | access token | Validates the access token. If `X-Service-ID` is present, also checks `usr_info.usr_access`. Returns `401` when the user is unauthenticated and `403` when the token is valid but the user lacks access to that service. Used by NGINX `auth_request`. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py`, `extra/example.conf` |
+| `GET` | `/api_gateway/v1/users/validate` | access token | Validates the access token and returns `is_admin`. Administrators bypass service-ID restrictions; normal users are checked against `usr_info.usr_access`. Returns `X-User-Admin` for NGINX subrequests. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py`, `extra/example.conf` |
 | `POST` | `/api_gateway/v1/users/refresh/` | refresh token | Accepts a refresh token from request body or refresh cookie, validates it, issues a new access token, and rewrites auth cookies. | `backend/users/urls.py`, `backend/users/views.py`, `backend/utils/jwt.py` |
 | `GET` | `/api_gateway/v1/users/admin/` | admin | Lists all users with `id`, `username`, `is_admin`, `access`, `created_at`, `jwt_expiration`. | `backend/users/urls.py`, `backend/users/views.py` |
 | `POST` | `/api_gateway/v1/users/admin/` | admin | Creates a user. Accepts `user_name`, `user_pass`, `is_admin`, `access`, `jwt_expiration`. | `backend/users/urls.py`, `backend/users/views.py` |
@@ -238,9 +238,9 @@ Notes:
 
 | Method | Path | Auth | What it does | Source files |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api_gateway/v1/services/` | authenticated | Lists only the services present in the requesting user's `usr_access`. Includes image, name, IP, description, category, NGINX blocks, enabled flag, and favorite state. | `backend/services/urls.py`, `backend/services/views.py` |
+| `GET` | `/api_gateway/v1/services/` | authenticated | Lists every service for administrators and only `usr_access` services for normal users. Includes image, name, IP, description, category, NGINX blocks, enabled flag, and favorite state. | `backend/services/urls.py`, `backend/services/views.py` |
 | `GET` | `/api_gateway/v1/services/next-id/` | admin | Returns the predicted next service ID as `MAX(srv_id) + 1` for the frontend service editor reference snippets and validation. | `backend/services/urls.py`, `backend/services/views.py` |
-| `POST` | `/api_gateway/v1/services/` | admin | Creates a service in `services_info`, stores image bytes, category, frontend/backend NGINX blocks, and enabled state. Also appends the new service ID to the creating admin's `usr_access`. | `backend/services/urls.py`, `backend/services/views.py` |
+| `POST` | `/api_gateway/v1/services/` | admin | Creates a service in `services_info` and stores image bytes, category, frontend/backend NGINX blocks, and enabled state. Admin access is automatic, so `usr_access` is unchanged. | `backend/services/urls.py`, `backend/services/views.py` |
 | `GET` | `/api_gateway/v1/services/categories/` | authenticated | Lists `services_category` records. | `backend/services/urls.py`, `backend/services/views.py` |
 | `POST` | `/api_gateway/v1/services/<service_id>/favorite` | authenticated | Marks a service as favorite for the current user if the user has access to it. | `backend/services/urls.py`, `backend/services/views.py` |
 | `DELETE` | `/api_gateway/v1/services/<service_id>/favorite` | authenticated | Removes a favorite relation for the current user. | `backend/services/urls.py`, `backend/services/views.py` |
@@ -431,7 +431,7 @@ Observed columns used directly in code include:
 - Cookie auth is now part of the intended runtime behavior, especially for `/me`, `/validate`, and refresh.
 - The app exposes SimpleJWT endpoints, but the portal uses the custom JWT flow instead.
 - Tasy-backed users are shadowed into `usr_info` with `usr_tasy = true`, so they can use favorites, access lists, and the rest of the panel without storing a reusable local password hash.
-- Service access control is string-based and depends on comma-separated service IDs in `usr_info.usr_access`.
+- Administrators always have access to every service. Normal-user access control remains string-based and depends on comma-separated service IDs in `usr_info.usr_access`.
 - Several infrastructure values are still hardcoded in source files rather than moved to env:
   - SSH deployment settings in `backend/nginx/builder.py`
   - work-order DB proxy settings in `backend/workorders/services.py`

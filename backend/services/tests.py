@@ -2,9 +2,30 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
-from rest_framework.test import APIRequestFactory
+from rest_framework.test import APIRequestFactory, force_authenticate
 
-from .views import ServiceNextIdManager
+from .views import ServiceNextIdManager, fetch_user_accessible_service_ids
+
+
+class ServiceAccessTests(TestCase):
+    def test_admin_receives_every_service_without_explicit_access(self):
+        cur = MagicMock()
+        cur.fetchone.return_value = (True, "")
+        cur.fetchall.return_value = [(2,), (5,), (9,)]
+
+        service_ids = fetch_user_accessible_service_ids(cur, user_id=1)
+
+        self.assertEqual(service_ids, [2, 5, 9])
+        cur.execute.assert_any_call("SELECT srv_id FROM services_info ORDER BY srv_id")
+
+    def test_normal_user_keeps_explicit_service_access(self):
+        cur = MagicMock()
+        cur.fetchone.return_value = (False, "2,5")
+
+        service_ids = fetch_user_accessible_service_ids(cur, user_id=7)
+
+        self.assertEqual(service_ids, [2, 5])
+        self.assertEqual(cur.execute.call_count, 1)
 
 
 class ServiceNextIdManagerTests(TestCase):
@@ -26,7 +47,7 @@ class ServiceNextIdManagerTests(TestCase):
         mock_get_db_connection.return_value = conn
 
         request = self.factory.get("/api_gateway/v1/services/next-id/")
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         response = ServiceNextIdManager.as_view()(request)
 
@@ -35,7 +56,9 @@ class ServiceNextIdManagerTests(TestCase):
         cur.execute.assert_called_once_with(
             "SELECT COALESCE(MAX(srv_id), 0) + 1 FROM services_info"
         )
-        mock_get_admin_user_from_token.assert_called_once_with(request)
+        mock_get_admin_user_from_token.assert_called_once()
+        authenticated_request = mock_get_admin_user_from_token.call_args.args[0]
+        self.assertEqual(authenticated_request.path, request.path)
         cur.close.assert_called_once()
         conn.close.assert_called_once()
 
@@ -53,7 +76,7 @@ class ServiceNextIdManagerTests(TestCase):
         mock_get_db_connection.return_value = conn
 
         request = self.factory.get("/api_gateway/v1/services/next-id/")
-        request.user = self.user
+        force_authenticate(request, user=self.user)
 
         response = ServiceNextIdManager.as_view()(request)
 

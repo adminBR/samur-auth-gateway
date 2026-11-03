@@ -114,12 +114,19 @@ def parse_service_ids(raw_service_ids) -> list[int]:
 
 
 def fetch_user_accessible_service_ids(cur, user_id: int) -> list[int]:
-    cur.execute("SELECT usr_access FROM usr_info WHERE usr_id = %s", (user_id,))
+    cur.execute(
+        "SELECT usr_admin, usr_access FROM usr_info WHERE usr_id = %s",
+        (user_id,),
+    )
     result = cur.fetchone()
     if result is None:
         raise ValidationError({"detail": "User not found."})
 
-    return parse_service_ids(result[0])
+    if bool(result[0]):
+        cur.execute("SELECT srv_id FROM services_info ORDER BY srv_id")
+        return [int(row[0]) for row in cur.fetchall()]
+
+    return parse_service_ids(result[1])
 
 
 def fetch_user_favorite_service_ids(
@@ -441,16 +448,6 @@ class ServicesManager(APIView):
             result = cur.fetchone()
             _service_id = result[0]
             
-            cur.execute("SELECT usr_access FROM usr_info WHERE usr_id = %s", (user_id,))
-            _result_user_access = cur.fetchone()[0]
-            
-            if not _result_user_access:
-                return Response({"detail": "User not found"}, status=status.HTTP_401_UNAUTHORIZED)
-
-            allowed_services = _result_user_access.split(",")
-            if str(_service_id) not in allowed_services:
-                _result_user_access = f"{_result_user_access},{_service_id}"
-                cur.execute("update usr_info set usr_access = %s WHERE usr_id = %s", (_result_user_access,user_id,))
             conn.commit()
             logger.info(f"Service created successfully with srv_id: {_service_id} by user_id: {user_id}")
         

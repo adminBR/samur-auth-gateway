@@ -11,9 +11,10 @@ from utils.jwt import (
 
 
 class CustomUser:
-    def __init__(self, user_id, username):
+    def __init__(self, user_id, username, *, is_admin=False):
         self.id = user_id
         self.username = username
+        self.is_admin = bool(is_admin)
         self.is_authenticated = True  # Required for DRF permission checks
 
 
@@ -41,4 +42,11 @@ class JWTCustomAuth(BaseAuthentication):
             raise AuthenticationFailed("Invalid token payload.")
 
         # You could validate against the DB here again, but optional
-        return (CustomUser(user_id, username), None)
+        return (
+            CustomUser(
+                user_id,
+                username,
+                is_admin=payload.get("is_admin", False),
+            ),
+            None,
+        )

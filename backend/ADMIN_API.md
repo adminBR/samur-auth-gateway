@@ -79,6 +79,10 @@ Both operations are idempotent and return:
 Revoking access also removes that service from the user's favorites. Permission
 changes do not require an NGINX publish.
 
+Administrators always have access to every current and future service, regardless
+of the value stored in `access`. Grant/revoke calls are only necessary for normal
+users. Access tokens expose this state as the boolean `is_admin` claim.
+
 ## Services
 
 Each independently protected page must be a separate generic service row. This

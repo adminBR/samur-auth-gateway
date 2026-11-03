@@ -293,6 +293,7 @@ class AuthFlowTests(SimpleTestCase):
         self.assertEqual(access_payload["token_type"], TOKEN_TYPE_ACCESS)
         self.assertEqual(access_payload["user_id"], 1)
         self.assertEqual(access_payload["user_name"], "alice")
+        self.assertFalse(access_payload["is_admin"])
 
     @patch(
         "users.views.fetch_user_auth_context",
@@ -324,12 +325,14 @@ class AuthFlowTests(SimpleTestCase):
             99,
             "cookie-auth",
             "1",
+            is_admin=True,
         )
 
         user, _ = JWTCustomAuth().authenticate(request)
 
         self.assertEqual(user.id, 99)
         self.assertEqual(user.username, "cookie-auth")
+        self.assertTrue(user.is_admin)
 
     def test_validate_endpoint_returns_401_when_no_token_is_provided(self):
         response = self.client.get("/api_gateway/v1/users/validate")
@@ -364,7 +367,7 @@ class AuthFlowTests(SimpleTestCase):
     ):
         conn = mock_get_db_connection.return_value
         cur = conn.cursor.return_value
-        cur.fetchone.return_value = ("2,3",)
+        cur.fetchone.return_value = (False, "2,3")
 
         access_token = create_access_token(7, "blocked-user", "1")
         self.client.cookies[settings.AUTH_ACCESS_TOKEN_COOKIE_NAME] = access_token
@@ -376,6 +379,27 @@ class AuthFlowTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Access denied to this service")
+
+    @patch("users.views.get_db_connection")
+    def test_validate_endpoint_allows_admin_without_explicit_service_access(
+        self,
+        mock_get_db_connection,
+    ):
+        conn = mock_get_db_connection.return_value
+        cur = conn.cursor.return_value
+        cur.fetchone.return_value = (True, "")
+
+        access_token = create_access_token(1, "admin", "1")
+        self.client.cookies[settings.AUTH_ACCESS_TOKEN_COOKIE_NAME] = access_token
+
+        response = self.client.get(
+            "/api_gateway/v1/users/validate",
+            HTTP_X_SERVICE_ID="999",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["is_admin"])
+        self.assertEqual(response["X-User-Admin"], "true")
 
 
 class AdminUserServiceAccessTests(SimpleTestCase):
